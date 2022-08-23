@@ -399,6 +399,7 @@ public class DubboProtocol extends AbstractProtocol {
         optimizeSerialization(url);
 
         // create rpc invoker.
+        // getClients至关重要——建立网络连接
         DubboInvoker<T> invoker = new DubboInvoker<T>(serviceType, url, getClients(url), invokers);
         invokers.add(invoker);
 
@@ -422,6 +423,7 @@ public class DubboProtocol extends AbstractProtocol {
             String shareConnectionsStr = url.getParameter(SHARE_CONNECTIONS_KEY, (String) null);
             connections = Integer.parseInt(StringUtils.isBlank(shareConnectionsStr) ? ConfigurationUtils.getProperty(url.getOrDefaultApplicationModel(), SHARE_CONNECTIONS_KEY,
                 DEFAULT_SHARE_CONNECTIONS) : shareConnectionsStr);
+            // 创建网络连接client
             shareClients = getSharedClient(url, connections);
         }
 
@@ -490,6 +492,7 @@ public class DubboProtocol extends AbstractProtocol {
 
             // If the clients is empty, then the first initialization is
             if (CollectionUtils.isEmpty(typedClients)) {
+                // 创建底层网络连接 netty
                 typedClients = buildReferenceCountExchangeClientList(url, connectNum);
             } else {
                 for (int i = 0; i < typedClients.size(); i++) {
@@ -565,6 +568,7 @@ public class DubboProtocol extends AbstractProtocol {
         List<ReferenceCountExchangeClient> clients = new ArrayList<>();
 
         for (int i = 0; i < connectNum; i++) {
+            // 创建底层连接
             clients.add(buildReferenceCountExchangeClient(url));
         }
 
@@ -578,6 +582,7 @@ public class DubboProtocol extends AbstractProtocol {
      * @return
      */
     private ReferenceCountExchangeClient buildReferenceCountExchangeClient(URL url) {
+        // 重要
         ExchangeClient exchangeClient = initClient(url);
         ReferenceCountExchangeClient client = new ReferenceCountExchangeClient(exchangeClient, DubboCodec.NAME);
         // read configs
@@ -617,6 +622,8 @@ public class DubboProtocol extends AbstractProtocol {
             if (url.getParameter(LAZY_CONNECT_KEY, false)) {
                 client = new LazyConnectExchangeClient(url, requestHandler);
             } else {
+                // 通过Exchangers来发起网络连接
+                // 底层是netty来进行网络连接。后续后走到NettyClient中
                 client = Exchangers.connect(url, requestHandler);
             }
 

@@ -56,6 +56,11 @@ import static org.apache.dubbo.remoting.Constants.CHECK_KEY;
 
 /**
  * DynamicDirectory
+ * 动态目录，动态可变的一个目标服务实例的集群地址（有多少个服务实例，就有多少个invoker）
+ * 动态还有一层意思就是说，服务实例上线或下线也能感知到。服务的上下线zk是可以感知的，那么zk会来通知DynamicDirectory
+ *
+ * 他是最核心的用于服务发现的一个组件，cunsumer端肯定是要去调用一个provider端的
+ *
  */
 public abstract class DynamicDirectory<T> extends AbstractDirectory<T> implements NotifyListener {
 
@@ -109,6 +114,9 @@ public abstract class DynamicDirectory<T> extends AbstractDirectory<T> implement
      */
     protected volatile List<Configurator> configurators;
 
+    /**
+     * 这个看名称感觉就是我要找的服务实例变化后如何更新DynamicDirectory的
+     */
     protected ServiceInstancesChangedListener serviceListener;
 
     /**
@@ -177,6 +185,10 @@ public abstract class DynamicDirectory<T> extends AbstractDirectory<T> implement
 
     public void subscribe(URL url) {
         setSubscribeUrl(url);
+        // 关键的方法——实现服务实例的发现
+        // 走这里 ListenerRegistryWrapper
+        // 这个方法名是订阅的意思。不出意外就是跟zookeeperRegistry上进行订阅了，那么zk上变化这里也会收到
+        // 实际上也确实是如此
         registry.subscribe(url, this);
     }
 
@@ -201,6 +213,9 @@ public abstract class DynamicDirectory<T> extends AbstractDirectory<T> implement
 
         try {
             // Get invokers from cache, only runtime routers will be executed.
+            // route路由的策略。有tag、service、app等策略。调用provider服务实例，我可以根据筛选我可以访问的服务实例
+            // 比如 灰度发布，新发布一台服务实例的新机器新版本，另外两台是就的版本
+            // provider服务必须是只能把请求分发给老版本的就机器，新版本的新机器暂时还不能访问
             List<Invoker<T>> result = routerChain.route(getConsumerUrl(), invokers, invocation);
             return result == null ? BitList.emptyList() : result;
         } catch (Throwable t) {

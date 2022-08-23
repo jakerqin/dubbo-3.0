@@ -200,6 +200,7 @@ public class ServiceInstancesChangedListener {
         }
 
         this.serviceUrls = newServiceUrls;
+        // 看名字就感觉挺重要的
         this.notifyAddressChanged();
     }
 

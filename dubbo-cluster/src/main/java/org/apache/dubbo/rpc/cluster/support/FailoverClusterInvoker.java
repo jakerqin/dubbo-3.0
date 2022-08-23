@@ -54,29 +54,43 @@ public class FailoverClusterInvoker<T> extends AbstractClusterInvoker<T> {
 
     @Override
     @SuppressWarnings({"unchecked", "rawtypes"})
+    // 找一个invoker，invocation交给多个invokers里的一个发起rpc调用
+    // loadBalance会负载均衡
     public Result doInvoke(Invocation invocation, final List<Invoker<T>> invokers, LoadBalance loadbalance) throws RpcException {
+        // 创建invokers的引用
         List<Invoker<T>> copyInvokers = invokers;
         checkInvokers(copyInvokers, invocation);
+        // 拿到方法名
         String methodName = RpcUtils.getMethodName(invocation);
+        // 计算调用次数。这个应该还是很关键的，看我们的类名也应该可以知道是容灾的
+        // 一般不配置，默认就是3次（调用加失败后重试次数）
         int len = calculateInvokeTimes(methodName);
         // retry loop.
         RpcException le = null; // last exception.
-        List<Invoker<T>> invoked = new ArrayList<Invoker<T>>(copyInvokers.size()); // invoked invokers.
+        // invoked invokers. 构建一个跟invokers数量相等的一个list
+        // 基于你的总共计算出的调用次数，搞了一个set，因为比如说最多调用3次，那么最多也就会调用3个provider的服务实例，每个服务实例就是一个invoker
+        List<Invoker<T>> invoked = new ArrayList<Invoker<T>>(copyInvokers.size());
         Set<String> providers = new HashSet<String>(len);
         for (int i = 0; i < len; i++) {
             //Reselect before retry to avoid a change of candidate `invokers`.
             //NOTE: if `invokers` changed, then `invoked` also lose accuracy.
+            // 如果i>0，一定是所谓的前面几次调用失败，要开始进行重试了
             if (i > 0) {
                 checkWhetherDestroyed();
+                // 调用dynamicDirectory进行一次involers列表的刷新
+                // 就是为了，你第一次调用都失败了，有可能invokers列表出现变化了，所以此时必须刷新一下invokers列表
                 copyInvokers = list(invocation);
                 // check again
+                // 再次检查invokers是否为空
                 checkInvokers(copyInvokers, invocation);
             }
+            // 负载均衡。利用负载均衡组件，选择一个Invoker
             Invoker<T> invoker = select(loadbalance, invocation, copyInvokers, invoked);
             invoked.add(invoker);
             RpcContext.getServiceContext().setInvokers((List) invoked);
             boolean success = false;
             try {
+                // 发起rpc调用，拿到一个result
                 Result result = invokeWithContext(invoker, invocation);
                 if (le != null && logger.isWarnEnabled()) {
                     logger.warn("Although retry the method " + methodName
@@ -100,6 +114,7 @@ public class FailoverClusterInvoker<T> extends AbstractClusterInvoker<T> {
                 le = new RpcException(e.getMessage(), e);
             } finally {
                 if (!success) {
+                    // 调用失败，服务实例地址加进去
                     providers.add(invoker.getUrl().getAddress());
                 }
             }

@@ -181,7 +181,12 @@ public class ZookeeperRegistry extends CacheableFailbackRegistry {
                         if (zkListener instanceof RegistryChildListenerImpl) {
                             ((RegistryChildListenerImpl) zkListener).setLatch(latch);
                         }
+                        // 创建一个节点
                         zkClient.create(path, false);
+                        // 添加节点的监听器。监听器的作用：
+                        // 当服务实例上线或下线后zk通过这个监听器来通知
+                        // 这个底层会一通的调用，但是其实只要是服务实例变更，那么一定会更改DynamicDirectory中的变量
+                        // 我们可以换个思路在DynamicDirectory中找他的回调方法
                         List<String> children = zkClient.addChildListener(path, zkListener);
                         if (children != null) {
                             urls.addAll(toUrlsWithEmpty(url, path, children));

@@ -194,6 +194,7 @@ public interface FilterChainBuilder {
             Result asyncResult = filterInvoker.invoke(invocation);
             asyncResult.whenCompleteWithContext((r, t) -> {
                 RuntimeException filterRuntimeException = null;
+                // 当是接收到请求，调用本地代理实现的。filters有近10种，重点是走到 TraceFilter.invoker方法
                 for (int i = filters.size() - 1; i >= 0; i--) {
                     FILTER filter = filters.get(i);
                     try {

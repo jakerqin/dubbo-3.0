@@ -95,7 +95,7 @@ public abstract class AbstractProxyInvoker<T> implements Invoker<T> {
                     originEntry = Profiler.setToBizProfiler(profiler);
                 }
             }
-
+            // 参数中有proxy，看来是要调生成的动态代理实现类了。**
             Object value = doInvoke(proxy, invocation.getMethodName(), invocation.getParameterTypes(), invocation.getArguments());
 
             if (ProfilerSwitch.isEnableSimpleProfiler()) {

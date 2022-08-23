@@ -108,6 +108,8 @@ public class ListenerRegistryWrapper implements Registry {
     public void subscribe(URL url, NotifyListener listener) {
         try {
             if (registry != null) {
+                // serviceDiscoveryRegistry
+                // 但是从这个里面看不到什么。可以直接看ZookeeperRegistry.doSubscibe方法
                 registry.subscribe(url, listener);
             }
         } finally {

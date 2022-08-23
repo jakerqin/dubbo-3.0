@@ -573,6 +573,11 @@ public class RegistryProtocol implements Protocol, ScopeModelAware {
             registry.register(directory.getRegisteredConsumerUrl());
         }
         directory.buildRouterChain(urlToRegistry);
+        // 很关键的一步
+        // 看日志可以发现--这里会进行对发现的服务进行注册，并且还进行了连接
+        // 构造出和每个服务实例连接的句柄DubboInvoker，每个invoker底层通过
+        // Exchanger->nettyClient与dobbo发布地址的建立网络连接
+        // 底层也会存储这些invoker，供后续直接调用
         directory.subscribe(toSubscribeUrl(urlToRegistry));
 
         return (ClusterInvoker<T>) cluster.join(directory, true);
