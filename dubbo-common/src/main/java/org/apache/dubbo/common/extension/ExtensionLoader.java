@@ -758,6 +758,7 @@ public class ExtensionLoader<T> {
 
     @SuppressWarnings("unchecked")
     private T createExtension(String name, boolean wrap) {
+        // getExtensionClasses()通过Dubbo的SPI规范读取所有的的扩展类，并存储起来，下次就不从配置文件中读取了
         Class<?> clazz = getExtensionClasses().get(name);
         if (clazz == null || unacceptableExceptions.contains(name)) {
             throw findException(name);
@@ -765,9 +766,11 @@ public class ExtensionLoader<T> {
         try {
             T instance = (T) extensionInstances.get(clazz);
             if (instance == null) {
+                // 通过反射创建事例对象，并存储
                 extensionInstances.putIfAbsent(clazz, createExtensionInstance(clazz));
                 instance = (T) extensionInstances.get(clazz);
                 instance = postProcessBeforeInitialization(instance, name);
+                // 向实例中注入依赖
                 injectExtension(instance);
                 instance = postProcessAfterInitialization(instance, name);
             }
@@ -781,12 +784,15 @@ public class ExtensionLoader<T> {
                 }
 
                 if (CollectionUtils.isNotEmpty(wrapperClassesList)) {
+                    // 循环创建 Wrapper 实例
                     for (Class<?> wrapperClass : wrapperClassesList) {
                         Wrapper wrapper = wrapperClass.getAnnotation(Wrapper.class);
                         boolean match = (wrapper == null) ||
                             ((ArrayUtils.isEmpty(wrapper.matches()) || ArrayUtils.contains(wrapper.matches(), name)) &&
                                 !ArrayUtils.contains(wrapper.mismatches(), name));
                         if (match) {
+                            // 将当前instance作为参数传给Wrapper 的构造方法，并通过反射创建Wrapper实例
+                            // 然后向 Wrapper 实例中注入依赖，最后将Wrapper 实例再次赋值给instance变量
                             instance = injectExtension((T) wrapperClass.getConstructor(type).newInstance(instance));
                             instance = postProcessAfterInitialization(instance, name);
                         }

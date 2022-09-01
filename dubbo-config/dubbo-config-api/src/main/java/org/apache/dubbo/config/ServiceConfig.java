@@ -382,7 +382,7 @@ public class ServiceConfig<T> extends ServiceConfigBase<T> {
     private void doExportUrls() {
         // ScopeModel 真实类型叫做 ModuleModel
         // getScopeModel(),再去获取service repository，也可以获取之前获取过的其他组件
-        // dubbo这里把他的各个组件，都几种在了ScopeModel(ModuleModel)，ScopeModel就类似于设计模式里的门面模式，里面封装一些属性方法
+        // dubbo这里把他的各个组件，集中在了ScopeModel(ModuleModel)，ScopeModel就类似于设计模式里的门面模式，里面封装一些属性方法
         // ScopeModel、ModuleModel、ApplicationModel多个model组成一个体系
 
         // ModuleServiceRepository 核心本质是dubbo服务数据存储组件
