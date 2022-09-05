@@ -31,6 +31,9 @@ import java.util.concurrent.ThreadLocalRandom;
  * If there is only one invoker, use the invoker directly;
  * if there are multiple invokers and the weights are not the same, then random according to the total weight;
  * if there are multiple invokers and the same weight, then randomly called.
+ *
+ * 会去尽量选择你的被调用最少的invoker
+ * 记录你的每个invoker当前活跃的调用有多少个
  */
 public class LeastActiveLoadBalance extends AbstractLoadBalance {
 
@@ -60,18 +63,23 @@ public class LeastActiveLoadBalance extends AbstractLoadBalance {
         for (int i = 0; i < length; i++) {
             Invoker<T> invoker = invokers.get(i);
             // Get the active number of the invoker
+            // 每一次 如果你进来了以后，发现了一个invoker，他的调用次数是active
             int active = RpcStatus.getStatus(invoker.getUrl(), invocation.getMethodName()).getActive();
             // Get the weight of the invoker's configuration. The default value is 100.
             int afterWarmup = getWeight(invoker, invocation);
             // save for later use
             weights[i] = afterWarmup;
             // If it is the first invoker or the active number of the invoker is less than the current least active number
+            // 如果说发现当前这个invoker的活跃调用次数数是比上一个invoker的活跃调用次数是小的
+            // 此时会进入下面的代码
             if (leastActive == -1 || active < leastActive) {
                 // Reset the active number of the current invoker to the least active number
                 leastActive = active;
                 // Reset the number of least active invokers
+                // 设置成1，下下面的判断直接走进去了
                 leastCount = 1;
                 // Put the first least active invoker first in leastIndexes
+                // 放到第一个位置，下下面的判断直接取
                 leastIndexes[0] = i;
                 // Reset totalWeight
                 totalWeight = afterWarmup;

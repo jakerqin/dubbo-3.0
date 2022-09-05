@@ -47,6 +47,8 @@ import static org.apache.dubbo.rpc.cluster.Constants.FAIL_BACK_TASKS_KEY;
  * Especially useful for services of notification.
  *
  * <a href="http://en.wikipedia.org/wiki/Failback">Failback</a>
+ *
+ * failback 如果调用失败了，会把这次调用记录存储起来，后续根据一定的策略，再去隔一段时间的进行重试
  */
 public class FailbackClusterInvoker<T> extends AbstractClusterInvoker<T> {
 
@@ -79,9 +81,12 @@ public class FailbackClusterInvoker<T> extends AbstractClusterInvoker<T> {
     }
 
     private void addFailed(LoadBalance loadbalance, Invocation invocation, List<Invoker<T>> invokers, Invoker<T> lastInvoker, URL consumerUrl) {
+        // 保证线程安全，double check 创建failTimer
+        // 并且使用了 时间轮
         if (failTimer == null) {
             synchronized (this) {
                 if (failTimer == null) {
+                    // 时间轮机制
                     failTimer = new HashedWheelTimer(
                         new NamedThreadFactory("failback-cluster-timer", true),
                         1,
@@ -89,6 +94,7 @@ public class FailbackClusterInvoker<T> extends AbstractClusterInvoker<T> {
                 }
             }
         }
+        // 封装一个TimerTask任务并添加进timer wheel中
         RetryTimerTask retryTimerTask = new RetryTimerTask(loadbalance, invocation, invokers, lastInvoker, retries, RETRY_FAILED_PERIOD, consumerUrl);
         try {
             failTimer.newTimeout(retryTimerTask, RETRY_FAILED_PERIOD, TimeUnit.SECONDS);
@@ -106,11 +112,14 @@ public class FailbackClusterInvoker<T> extends AbstractClusterInvoker<T> {
             invoker = select(loadbalance, invocation, invokers, null);
             // Asynchronous call method must be used here, because failback will retry in the background.
             // Then the serviceContext will be cleared after the call is completed.
+            // 异步调用（没看出来哪异步了）
             return invokeWithContextAsync(invoker, invocation, consumerUrl);
         } catch (Throwable e) {
             logger.error("Failback to invoke method " + invocation.getMethodName() + ", wait for retry in background. Ignored exception: "
                 + e.getMessage() + ", ", e);
+            // 如果不出意外，默认也是3次，走完addFailed之后，就会返回一个空结果
             if (retries > 0) {
+                // 添加进时间轮里，隔一段时间重试
                 addFailed(loadbalance, invocation, invokers, invoker, consumerUrl);
             }
             return AsyncRpcResult.newDefaultAsyncResult(null, null, invocation); // ignore

@@ -55,11 +55,13 @@ public class RandomLoadBalance extends AbstractLoadBalance {
         // 先拿到目标服务实例集群的invoker数量
         int length = invokers.size();
 
+        // 不需要权重
         if (!needWeightLoadBalance(invokers,invocation)){
             // 直接就是random.nextInt 简单至极
             return invokers.get(ThreadLocalRandom.current().nextInt(length));
         }
 
+        // 带有权重走下面
         // Every invoker has the same weight?
         boolean sameWeight = true;
         // the maxWeight of every invokers, the minWeight = 0 or the maxWeight of the last invoker
@@ -72,16 +74,20 @@ public class RandomLoadBalance extends AbstractLoadBalance {
             totalWeight += weight;
             // save for later use
             weights[i] = totalWeight;
+            // 判断各个invoker权重是否都一样
             if (sameWeight && totalWeight != weight * (i + 1)) {
                 sameWeight = false;
             }
         }
+        // 权重不一样走这里
         if (totalWeight > 0 && !sameWeight) {
             // If (not every invoker has the same weight & at least one invoker's weight>0), select randomly based on totalWeight.
+            // 计算一个offset值
             int offset = ThreadLocalRandom.current().nextInt(totalWeight);
             // Return a invoker based on the random value.
             for (int i = 0; i < length; i++) {
                 if (offset < weights[i]) {
+                    // 这里可以理解为，offset比weights中绝大多数值都大，但是就是比weight[i]小, 那么可以认为weights[i]权重比较高
                     return invokers.get(i);
                 }
             }

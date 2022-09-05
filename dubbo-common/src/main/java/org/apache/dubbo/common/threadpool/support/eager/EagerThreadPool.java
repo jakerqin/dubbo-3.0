@@ -44,8 +44,12 @@ public class EagerThreadPool implements ThreadPool {
 
     @Override
     public Executor getExecutor(URL url) {
+        // 如果你的线程池里的线程都是在忙碌的状态下，此时你可以创建新的线程出来
+        // 而不是放到queue里去排队
+
         String name = url.getParameter(THREAD_NAME_KEY, (String) url.getAttribute(THREAD_NAME_KEY, DEFAULT_THREAD_NAME));
         int cores = url.getParameter(CORE_THREADS_KEY, DEFAULT_CORE_THREADS);
+        // 这里是一个最大值（慎用）
         int threads = url.getParameter(THREADS_KEY, Integer.MAX_VALUE);
         int queues = url.getParameter(QUEUES_KEY, DEFAULT_QUEUES);
         int alive = url.getParameter(ALIVE_KEY, DEFAULT_ALIVE);

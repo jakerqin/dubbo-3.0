@@ -91,6 +91,7 @@ public class DefaultExecutorRepository implements ExecutorRepository, ExtensionA
         // If executor has been shut down, create a new one
         if (executor.isShutdown() || executor.isTerminated()) {
             executors.remove(portKey);
+            // 看这里
             executor = createExecutor(url);
             executors.put(portKey, executor);
         }
@@ -115,6 +116,7 @@ public class DefaultExecutorRepository implements ExecutorRepository, ExtensionA
     }
 
     private ExecutorService createExecutor(URL url) {
+        // 获取一个自适应的扩展线程池类。默认是FixedThreadPool
         return (ExecutorService) extensionAccessor.getExtensionLoader(ThreadPool.class).getAdaptiveExtension().getExecutor(url);
     }
 

@@ -112,6 +112,7 @@ public class RpcStatus {
                 return false;
             }
 
+            // 通过CAS进行计数
             if (methodStatus.active.compareAndSet(i, i + 1)) {
                 break;
             }

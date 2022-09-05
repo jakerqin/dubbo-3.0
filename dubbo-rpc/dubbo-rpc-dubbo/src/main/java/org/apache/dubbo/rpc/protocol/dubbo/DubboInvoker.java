@@ -91,28 +91,36 @@ public class DubboInvoker<T> extends AbstractInvoker<T> {
         inv.setAttachment(PATH_KEY, getUrl().getPath());
         inv.setAttachment(VERSION_KEY, version);
 
+        // ExchangeClient，Exchange是跟网络相关的
+        // 底层是会去封装对应的netty，NettyClient一般是被封装在里面的
         ExchangeClient currentClient;
         if (clients.length == 1) {
             currentClient = clients[0];
         } else {
+            // 如果有多个用于网络通信的client，相当于轮询了
             currentClient = clients[index.getAndIncrement() % clients.length];
         }
         try {
             boolean isOneway = RpcUtils.isOneway(getUrl(), invocation);
+            // 计算过期时间
             int timeout = calculateTimeout(invocation, methodName);
             invocation.setAttachment(TIMEOUT_KEY, timeout);
             if (isOneway) {
+                // 直接发送 构造结果了
                 boolean isSent = getUrl().getMethodParameter(methodName, Constants.SENT_KEY, false);
                 currentClient.send(inv, isSent);
                 return AsyncRpcResult.newDefaultAsyncResult(invocation);
             } else {
-                // 同步的话就是创建一个线程池
+                // 异步的话就是创建一个线程池
                 ExecutorService executor = getCallbackExecutor(getUrl(), inv);
                 CompletableFuture<AppResponse> appResponseFuture =
                     // 在request()方法中构造请求，因为网络连接都在前面都建立好了，直接发送请求。
-                        currentClient.request(inv, timeout, executor).thenApply(obj -> (AppResponse) obj);
+                        currentClient.request(inv, timeout, executor)
+                            // 结果转换
+                            .thenApply(obj -> (AppResponse) obj);
                 // save for 2.6.x compatibility, for example, TraceFilter in Zipkin uses com.alibaba.xxx.FutureAdapter
                 FutureContext.getContext().setCompatibleFuture(appResponseFuture);
+                // 结果封装
                 AsyncRpcResult result = new AsyncRpcResult(appResponseFuture, inv);
                 result.setExecutor(executor);
                 return result;

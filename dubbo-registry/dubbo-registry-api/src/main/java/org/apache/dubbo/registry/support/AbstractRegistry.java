@@ -95,6 +95,7 @@ public abstract class AbstractRegistry implements Registry {
     private URL registryUrl;
     // Local disk cache file
     private File file;
+    // 本地是否启用缓存
     private final boolean localCacheEnabled;
     protected RegistryManager registryManager;
     protected ApplicationModel applicationModel;
@@ -102,12 +103,15 @@ public abstract class AbstractRegistry implements Registry {
     public AbstractRegistry(URL url) {
         setUrl(url);
         registryManager = url.getOrDefaultApplicationModel().getBeanFactory().getBean(RegistryManager.class);
+        // 本地缓存默认是true
         localCacheEnabled = url.getParameter(REGISTRY_LOCAL_FILE_CACHE_ENABLED, true);
         registryCacheExecutor = url.getOrDefaultFrameworkModel().getBeanFactory()
             .getBean(FrameworkExecutorRepository.class).getSharedExecutor();
         if (localCacheEnabled) {
+            // 本地磁盘的持久化
             // Start file save timer
             syncSaveFile = url.getParameter(REGISTRY_FILESAVE_SYNC_KEY, false);
+            // 构造本地文件名
             String defaultFilename = System.getProperty(USER_HOME) + DUBBO_REGISTRY + url.getApplication() +
                 "-" + url.getAddress().replaceAll(":", "-") + CACHE;
             String filename = url.getParameter(FILE_KEY, defaultFilename);
@@ -120,10 +124,13 @@ public abstract class AbstractRegistry implements Registry {
                     }
                 }
             }
+            // 文件赋值
             this.file = file;
             // When starting the subscription center,
             // we need to read the local cache file for future Registry fault tolerance processing.
+
             loadProperties();
+            // 下面方法重要，看经典的IO磁盘操作-》doSaveProperties
             notify(url.getBackupUrls());
         }
     }
@@ -173,6 +180,10 @@ public abstract class AbstractRegistry implements Registry {
         return lastCacheChanged;
     }
 
+    /**
+     * 保存注册的信息的信息到本地
+     * @param version
+     */
     public void doSaveProperties(long version) {
         if (version < lastCacheChanged.get()) {
             return;
@@ -183,12 +194,17 @@ public abstract class AbstractRegistry implements Registry {
         // Save
         File lockfile = null;
         try {
+            // 经典的磁盘IO
+            // 如果要对本地磁盘发起一些IO操作，一般来说都是哟啊建立一个磁盘文件锁的
             lockfile = new File(file.getAbsolutePath() + ".lock");
             if (!lockfile.exists()) {
                 lockfile.createNewFile();
             }
+            // 针对锁文件，lock file，搞一个randomAccessFile，随机读写
             try (RandomAccessFile raf = new RandomAccessFile(lockfile, "rw");
                  FileChannel channel = raf.getChannel()) {
+                // 此时就可以在API代码层面，针对这个锁文件进行lock加锁
+                // 如果有其他的线程代码走到这里，会直接block住
                 FileLock lock = channel.tryLock();
                 if (lock == null) {
                     throw new IOException("Can not lock the registry cache file " + file.getAbsolutePath() + ", " +
@@ -214,7 +230,7 @@ public abstract class AbstractRegistry implements Registry {
                             tmpProperties.setProperty((String) entry.getKey(), (String) entry.getValue());
                         }
                     }
-
+                    // 直接基于文件输出流，调用JDK提供的API，进行文件IO操作
                     try (FileOutputStream outputFile = new FileOutputStream(file)) {
                         tmpProperties.store(outputFile, "Dubbo Registry Cache");
                     }
@@ -252,6 +268,10 @@ public abstract class AbstractRegistry implements Registry {
         }
     }
 
+    /**
+     * 加载保存到本地的注册信息
+     * 比如服务中间重启就可以通过本地保存的信息快速提供服务
+     */
     private void loadProperties() {
         if (file == null || !file.exists()) {
             return;

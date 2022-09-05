@@ -34,11 +34,13 @@ import static org.apache.dubbo.rpc.Constants.ASYNC_KEY;
 
 /**
  * BroadcastClusterInvoker
+ * 顾名思义，会调用所有的invoker
  */
 public class BroadcastClusterInvoker<T> extends AbstractClusterInvoker<T> {
 
     private static final Logger logger = LoggerFactory.getLogger(BroadcastClusterInvoker.class);
     private static final String BROADCAST_FAIL_PERCENT_KEY = "broadcast.fail.percent";
+    // 广播失败比例最大容忍度
     private static final int MAX_BROADCAST_FAIL_PERCENT = 100;
     private static final int MIN_BROADCAST_FAIL_PERCENT = 0;
 
@@ -65,13 +67,16 @@ public class BroadcastClusterInvoker<T> extends AbstractClusterInvoker<T> {
             broadcastFailPercent = MAX_BROADCAST_FAIL_PERCENT;
         }
 
+        // 计算最大的失败次数
         int failThresholdIndex = invokers.size() * broadcastFailPercent / MAX_BROADCAST_FAIL_PERCENT;
         int failIndex = 0;
+        // 遍历所有的invoker进行调用
         for (Invoker<T> invoker : invokers) {
             try {
                 RpcInvocation subInvocation = new RpcInvocation(invocation, invoker);
                 subInvocation.setAttachment(ASYNC_KEY, "true");
                 result = invokeWithContext(invoker, subInvocation);
+                // 调用失败，记录到失败次数中，并比较是否达到最大的失败次数。达到就退出for循环
                 if (null != result && result.hasException()) {
                     Throwable resultException = result.getException();
                     if (null != resultException) {

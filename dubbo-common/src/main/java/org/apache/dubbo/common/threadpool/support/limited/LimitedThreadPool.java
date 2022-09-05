@@ -50,6 +50,8 @@ public class LimitedThreadPool implements ThreadPool {
         int cores = url.getParameter(CORE_THREADS_KEY, DEFAULT_CORE_THREADS);
         int threads = url.getParameter(THREADS_KEY, DEFAULT_THREADS);
         int queues = url.getParameter(QUEUES_KEY, DEFAULT_QUEUES);
+        // 线程数随着你的繁忙的任务量而增加，但是最大线程数量是不超过你的最大阈值的
+        // 而且空闲线程是不会被回收的
         return new ThreadPoolExecutor(cores, threads, Long.MAX_VALUE, TimeUnit.MILLISECONDS,
                 queues == 0 ? new SynchronousQueue<Runnable>() :
                         (queues < 0 ? new MemorySafeLinkedBlockingQueue<Runnable>()

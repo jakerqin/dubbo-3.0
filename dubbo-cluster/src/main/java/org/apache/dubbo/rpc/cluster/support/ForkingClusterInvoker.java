@@ -46,6 +46,8 @@ import static org.apache.dubbo.rpc.cluster.Constants.DEFAULT_FORKS;
  * Invoke a specific number of invokers concurrently, usually used for demanding real-time operations, but need to waste more service resources.
  *
  * <a href="http://en.wikipedia.org/wiki/Fork_(topology)">Fork</a>
+ *
+ * forking cluster, 就是会并行的调用几个服务，如果谁先返回结果，就用谁的结果
  */
 public class ForkingClusterInvoker<T> extends AbstractClusterInvoker<T> {
 
@@ -65,9 +67,12 @@ public class ForkingClusterInvoker<T> extends AbstractClusterInvoker<T> {
     @SuppressWarnings({"unchecked", "rawtypes"})
     public Result doInvoke(final Invocation invocation, List<Invoker<T>> invokers, LoadBalance loadbalance) throws RpcException {
         try {
+            // forking cluster, 就是会并行的调用几个服务
             checkInvokers(invokers, invocation);
             final List<Invoker<T>> selected;
+            // 默认的并行度->2
             final int forks = getUrl().getParameter(FORKS_KEY, DEFAULT_FORKS);
+            // 1000
             final int timeout = getUrl().getParameter(TIMEOUT_KEY, DEFAULT_TIMEOUT);
             if (forks <= 0 || forks >= invokers.size()) {
                 selected = invokers;
@@ -102,6 +107,7 @@ public class ForkingClusterInvoker<T> extends AbstractClusterInvoker<T> {
                 });
             }
             try {
+                // 从队列中去第一个元素，最多等待1s
                 Object ret = ref.poll(timeout, TimeUnit.MILLISECONDS);
                 if (ret instanceof Throwable) {
                     Throwable e = (Throwable) ret;

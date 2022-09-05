@@ -39,6 +39,13 @@ import static org.apache.dubbo.rpc.Constants.MOCK_KEY;
 import static org.apache.dubbo.rpc.cluster.Constants.FORCE_KEY;
 import static org.apache.dubbo.rpc.cluster.Constants.INVOCATION_NEED_MOCK;
 
+/**
+ * 模拟调用
+ * 如果说你的目标provider服务实例，突然故障了，这个时候consumer端可以进行降级调用
+ * 本地进行mock consumer端就不再发起远程调用了，直接在本地搞一个mock就可以了
+ * 本地调用一个mock方法，在mock方法里构造写死一个结果，返回就完了
+ * @param <T>
+ */
 public class MockClusterInvoker<T> implements ClusterInvoker<T> {
 
     private static final Logger logger = LoggerFactory.getLogger(MockClusterInvoker.class);
@@ -94,12 +101,24 @@ public class MockClusterInvoker<T> implements ClusterInvoker<T> {
         String value = getUrl().getMethodParameter(invocation.getMethodName(), MOCK_KEY, Boolean.FALSE.toString()).trim();
         if (ConfigUtils.isEmpty(value)) {
             //no mock
+            // 直接发起正常的调用
+            // 源码为什么要这么设计，设计的好处是什么
+            // 每一层的invoker都会去负责自己的事情
+            // invoker这块的设计，其实是责任链模式，运用了责任链的思想
+            // invoker -> invoker -> invoker -> invoker
+            // 在发起rpc调用的时候，肯定会涉及到很多的机制，如降级机制，集群容错机制，负载均衡机制
+            // 如果说你仅仅设计一个invoker，那里面的代码会很多很杂
+
+            // 就这样一个invoker的来执行，如果说前面的一些invoker走失败还会走到mock invoker，这块可以看画的图
+            // 先是MockClusterInvoker，随后是负载均衡invoker和集群容错invoker进行配合处理，调用失败如何重试
+            // 如果说始终都是失败的，哪就会回到MockClusterInvoker，如果启用了降级策略，哪还会走MockInvoker，写死一些返回值
             result = this.invoker.invoke(invocation);
         } else if (value.startsWith(FORCE_KEY)) {
             if (logger.isWarnEnabled()) {
                 logger.warn("force-mock: " + invocation.getMethodName() + " force-mock enabled , url : " + getUrl());
             }
             //force:direct mock
+            // 强制走mock
             result = doMockInvoke(invocation, null);
         } else {
             //fail-mock
@@ -112,6 +131,7 @@ public class MockClusterInvoker<T> implements ClusterInvoker<T> {
                     if (rpcException.isBiz()) {
                         throw rpcException;
                     } else {
+                        // 如果说rpc有异常，此时这里会直接进行mock调用
                         result = doMockInvoke(invocation, rpcException);
                     }
                 }

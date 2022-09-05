@@ -32,6 +32,10 @@ import java.util.List;
  * Usually used for non-idempotent write operations
  *
  * <a href="http://en.wikipedia.org/wiki/Fail-fast">Fail-fast</a>
+ *
+ * fail fast 顾名思义，就是说一旦调用的时候遇到了异常，直接抛出异常，不再进行重试了
+ *      适用于不支持幂等的写接口，避免万一重试几次，导致数据重复
+ * 相对于 fail over是支持故障转移，支持重试的。适用于查询接口或者是支持幂等的写接口
  */
 public class FailfastClusterInvoker<T> extends AbstractClusterInvoker<T> {
 
@@ -49,6 +53,7 @@ public class FailfastClusterInvoker<T> extends AbstractClusterInvoker<T> {
             if (e instanceof RpcException && ((RpcException) e).isBiz()) { // biz exception.
                 throw (RpcException) e;
             }
+            // 有问题直接封装一个异常让外抛
             throw new RpcException(e instanceof RpcException ? ((RpcException) e).getCode() : 0,
                 "Failfast invoke providers " + invoker.getUrl() + " " + loadbalance.getClass().getSimpleName()
                     + " for service " + getInterface().getName()

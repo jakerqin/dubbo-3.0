@@ -526,6 +526,7 @@ public class ExtensionLoader<T> {
     /**
      * Find the extension with the given name. If the specified name is not found, then {@link IllegalStateException}
      * will be thrown.
+     * 通过参数name寻找发现SPI机制中的扩展
      */
     public T getExtension(String name) {
         T extension = getExtension(name, true);
@@ -544,16 +545,20 @@ public class ExtensionLoader<T> {
         if ("true".equals(name)) {
             return getDefaultExtension();
         }
+        // 搞一个缓存key
         String cacheKey = name;
         if (!wrap) {
             cacheKey += "_origin";
         }
+        // 他基于这个cache key，构建和创建了一个holder 容器
         final Holder<Object> holder = getOrCreateHolder(cacheKey);
         Object instance = holder.get();
+        // 如果是空的，构建。线程安全的double check。锁的是holder
         if (instance == null) {
             synchronized (holder) {
                 instance = holder.get();
                 if (instance == null) {
+                    // 创建扩展类的服务实例
                     instance = createExtension(name, wrap);
                     holder.set(instance);
                 }
@@ -769,12 +774,14 @@ public class ExtensionLoader<T> {
                 // 通过反射创建事例对象，并存储
                 extensionInstances.putIfAbsent(clazz, createExtensionInstance(clazz));
                 instance = (T) extensionInstances.get(clazz);
+                // 做一个具体对这个实例对象初始化之前的post process
                 instance = postProcessBeforeInitialization(instance, name);
                 // 向实例中注入依赖
                 injectExtension(instance);
+                // 做一个具体对这个实例对象初始化之后的post process
                 instance = postProcessAfterInitialization(instance, name);
             }
-
+            // 如果需要包装
             if (wrap) {
                 List<Class<?>> wrapperClassesList = new ArrayList<>();
                 if (cachedWrapperClasses != null) {
@@ -801,6 +808,7 @@ public class ExtensionLoader<T> {
             }
 
             // Warning: After an instance of Lifecycle is wrapped by cachedWrapperClasses, it may not still be Lifecycle instance, this application may not invoke the lifecycle.initialize hook.
+            // 初始化 是一个Lifecycle接口
             initExtension(instance);
             return instance;
         } catch (Throwable t) {
@@ -847,12 +855,14 @@ public class ExtensionLoader<T> {
 
         try {
             for (Method method : instance.getClass().getMethods()) {
+                // 不是setter方法 直接跳过
                 if (!isSetter(method)) {
                     continue;
                 }
                 /**
                  * Check {@link DisableInject} to see if we need auto-injection for this property
                  */
+                // 加了拒绝注入注解，直接跳过
                 if (method.isAnnotationPresent(DisableInject.class)) {
                     continue;
                 }
@@ -867,16 +877,19 @@ public class ExtensionLoader<T> {
                         continue;
                     }
                 }
-
+                // 基于setter方法去进行依赖注入
                 Class<?> pt = method.getParameterTypes()[0];
                 if (ReflectUtils.isPrimitives(pt)) {
                     continue;
                 }
 
                 try {
+                    // 获取setter的属性
                     String property = getSetterProperty(method);
+                    // 如果注入的这个对象是其他SPI机制里的实现类的对象，会直接从容器里获取，注入给你就可以了
                     Object object = injector.getInstance(pt, property);
                     if (object != null) {
+                        // 调用setter方法实现依赖注入
                         method.invoke(instance, object);
                     }
                 } catch (Exception e) {
@@ -892,7 +905,9 @@ public class ExtensionLoader<T> {
 
     private void initExtension(T instance) {
         if (instance instanceof Lifecycle) {
+            // LifeCycle是一个接口
             Lifecycle lifecycle = (Lifecycle) instance;
+            // 这个方法是留给你自己实现的
             lifecycle.initialize();
         }
     }
@@ -934,10 +949,12 @@ public class ExtensionLoader<T> {
     private Map<String, Class<?>> getExtensionClasses() {
         Map<String, Class<?>> classes = cachedClasses.get();
         if (classes == null) {
+            //再双重检查
             synchronized (cachedClasses) {
                 classes = cachedClasses.get();
                 if (classes == null) {
                     try {
+                        // 加载SPI的扩展类
                         classes = loadExtensionClasses();
                     } catch (InterruptedException e) {
                         logger.error("Exception occurred when loading extension class (interface: " + type + ")", e);
@@ -960,6 +977,7 @@ public class ExtensionLoader<T> {
 
         Map<String, Class<?>> extensionClasses = new HashMap<>();
 
+        // 遍历加载策略
         for (LoadingStrategy strategy : strategies) {
             loadDirectory(extensionClasses, strategy, type.getName());
 
@@ -973,6 +991,7 @@ public class ExtensionLoader<T> {
     }
 
     private void loadDirectory(Map<String, Class<?>> extensionClasses, LoadingStrategy strategy, String type) throws InterruptedException {
+        //
         loadDirectoryInternal(extensionClasses, strategy, type);
         try {
             String oldType = type.replace("org.apache", "com.alibaba");
@@ -1010,6 +1029,8 @@ public class ExtensionLoader<T> {
     }
 
     private void loadDirectoryInternal(Map<String, Class<?>> extensionClasses, LoadingStrategy loadingStrategy, String type) throws InterruptedException {
+        // 文件名。directory是目录，type是接口名称
+        // 这个就跟dubbo的SPI配置的规则匹配上了
         String fileName = loadingStrategy.directory() + type;
         try {
             List<ClassLoader> classLoadersToLoad = new LinkedList<>();
@@ -1036,9 +1057,11 @@ public class ExtensionLoader<T> {
                 Set<ClassLoader> classLoaders = scopeModel.getClassLoaders();
 
                 if (CollectionUtils.isEmpty(classLoaders)) {
+                    // classLoader去加载资源的方法，基于我们的文件名，拿出来资源集合
                     Enumeration<java.net.URL> resources = ClassLoader.getSystemResources(fileName);
                     if (resources != null) {
                         while (resources.hasMoreElements()) {
+                            // 对资源集合进行遍历
                             loadResource(extensionClasses, null, resources.nextElement(), loadingStrategy.overridden(),
                                 loadingStrategy.includedPackages(),
                                 loadingStrategy.excludedPackages(),

@@ -29,6 +29,12 @@ import org.apache.dubbo.remoting.transport.dispatcher.WrappedChannelHandler;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.RejectedExecutionException;
 
+/**
+ * 思考一个问题：
+ *  为什么dubbo提供了那么多的分发策略：DirectChannelHandler、ExecutionChannelHandler
+ *  根据不同的情况，如实际要执行的代码并没有外部数据库IO操作
+ *  不关注网络连接和断开，关注的请求和响应的处理，message、execution等情况使用不同的分发策略处理
+ */
 public class AllChannelHandler extends WrappedChannelHandler {
 
     public AllChannelHandler(ChannelHandler handler, URL url) {
@@ -37,6 +43,8 @@ public class AllChannelHandler extends WrappedChannelHandler {
 
     @Override
     public void connected(Channel channel) throws RemotingException {
+        // channel代表了一个网络连接的成功建立
+        // 获取一个业务线程池
         ExecutorService executor = getSharedExecutorService();
         try {
             executor.execute(new ChannelEventRunnable(channel, handler, ChannelState.CONNECTED));

@@ -112,6 +112,8 @@ public class AccessLogFilter implements Filter {
         } catch (Throwable t) {
             logger.warn("Exception in AccessLogFilter of service(" + invoker + " -> " + inv + ")", t);
         }
+        // filter chain。调用下一个invoker
+        // 责任链模式
         return invoker.invoke(inv);
     }
 

@@ -28,6 +28,9 @@ import org.apache.dubbo.remoting.transport.dispatcher.WrappedChannelHandler;
 
 import java.util.concurrent.ExecutorService;
 
+/**
+ * direct 分发策略
+ */
 public class DirectChannelHandler extends WrappedChannelHandler {
 
     public DirectChannelHandler(ChannelHandler handler, URL url) {
@@ -36,6 +39,9 @@ public class DirectChannelHandler extends WrappedChannelHandler {
 
     @Override
     public void received(Channel channel, Object message) throws RemotingException {
+        // 在这个里面，只有received message，会放到业务线程池里去进行处理
+        // connected，disconnected,caught都没有放到业务线程池里去进行处理，都是在网络IO线程里处理
+        // 但是大部分情况下executor都不是ThreadlessExecutor的，所以if走不进去
         ExecutorService executor = getPreferredExecutorService(message);
         if (executor instanceof ThreadlessExecutor) {
             try {
@@ -44,6 +50,7 @@ public class DirectChannelHandler extends WrappedChannelHandler {
                 throw new ExecutionException(message, channel, getClass() + " error when process received event .", t);
             }
         } else {
+            // 直接在IO线程中执行
             handler.received(channel, message);
         }
     }

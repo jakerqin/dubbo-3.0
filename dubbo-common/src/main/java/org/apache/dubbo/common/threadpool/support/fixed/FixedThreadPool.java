@@ -47,11 +47,18 @@ public class FixedThreadPool implements ThreadPool {
         String name = url.getParameter(THREAD_NAME_KEY, (String) url.getAttribute(THREAD_NAME_KEY, DEFAULT_THREAD_NAME));
         int threads = url.getParameter(THREADS_KEY, DEFAULT_THREADS);
         int queues = url.getParameter(QUEUES_KEY, DEFAULT_QUEUES);
+        // 创建线程池
         return new ThreadPoolExecutor(threads, threads, 0, TimeUnit.MILLISECONDS,
+                // 参数判断使用那种队列
                 queues == 0 ? new SynchronousQueue<Runnable>() :
+                        // 无界
                         (queues < 0 ? new MemorySafeLinkedBlockingQueue<Runnable>()
+                                // 有界
                                 : new LinkedBlockingQueue<Runnable>(queues)),
-                new NamedInternalThreadFactory(name, true), new AbortPolicyWithReport(name, url));
+                // 线程工厂
+                new NamedInternalThreadFactory(name, true),
+                // 自定义拒绝策略
+                new AbortPolicyWithReport(name, url));
     }
 
 }
