@@ -35,6 +35,14 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
 
+/**
+ * 它是model组件体系里 最顶层的抽象父类
+ * 他实现了一个很关键的一个接口，ExtensionAccessor接口
+ * 这个ExtensionAccessor，是SPI扩展实现的获取组件
+ *
+ * 在dubbo组件体系里，如果你要是实现了extensionAccessor接口（里面有ExtensionDirector），就代表你具备了使用
+ * dubbo的SPI机制，随时可以获取指定接口的扩展实现的能力
+ */
 public abstract class ScopeModel implements ExtensionAccessor {
     protected static final Logger LOGGER = LoggerFactory.getLogger(ScopeModel.class);
 
@@ -50,6 +58,7 @@ public abstract class ScopeModel implements ExtensionAccessor {
      *     <li>1.2.1</li>
      *     FrameworkModel (index=1) -> ApplicationModel (index=2) -> ModuleModel (index=1, first user module)
      * </ol>
+     * 根据不同的名称就代表了不同的model组件树，或者说model组件体系
      */
     private String internalId;
 
@@ -60,20 +69,33 @@ public abstract class ScopeModel implements ExtensionAccessor {
 
     private String desc;
 
+    // 一批要使用的类加载器
     private Set<ClassLoader> classLoaders;
 
+    // 这个很关键，类型也是scopeModel，model组件体系必然会基于parent属性，构建一个model组件树
     private final ScopeModel parent;
+    // 一看就是跟spi机制的使用，是有关系的。它是枚举类型。代表了你在这里使用SPI机制的范围的范围是什么
+    // 你有很多的model组件，不同的extension Scope范围，就决定了你创建出来的extension实例，到底是在一个model可以用
+    // 还是可以跟其他的model组件可以进行共享使用，或者是别的model组件创建的extension实例就是新的
     private final ExtensionScope scope;
 
+    // extensionDirector本质来说就是一个extension loader的manager，管理组件
+    // 针对某个接口去加载到他对应的SPI扩展实例，就必须先通过extensionDirector获取到那个接口对应的extensionLoader
+    // 再通过extensionLoader来获取那个接口的extension实例对象
     private ExtensionDirector extensionDirector;
 
+    // 跟Spring中的概念很像。scope factory工厂的概念在里面
     private ScopeBeanFactory beanFactory;
+    // model组件，有自己的生命周期，创建、使用、销毁，如果说model组件有自己的行为的话，此时可以在销毁之前
+    // 先回调你的销毁事件的监听器，这样的话就有一个model组件的生命周期的事件监听机制在里面
     private List<ScopeModelDestroyListener> destroyListeners;
 
+    // model组件有关联的属性数据
     private Map<String, Object> attributes;
     private final AtomicBoolean destroyed = new AtomicBoolean(false);
     private final boolean internalScope;
 
+    // 构造的时候支持传入一个parent scopeModel
     public ScopeModel(ScopeModel parent, ExtensionScope scope, boolean isInternal) {
         this.parent = parent;
         this.scope = scope;
@@ -90,8 +112,11 @@ public abstract class ScopeModel implements ExtensionAccessor {
      * </ol>
      */
     protected void initialize() {
+        // 直接new一个extensionDirector，这个是SPI核心机制的manager组件
         this.extensionDirector = new ExtensionDirector(parent != null ? parent.getExtensionDirector() : null, scope, this);
+        // 添加extension post processor
         this.extensionDirector.addExtensionPostProcessor(new ScopeModelAwareExtensionProcessor(this));
+        // 构建出一个dubbo内部的bean容器
         this.beanFactory = new ScopeBeanFactory(parent != null ? parent.getBeanFactory() : null, extensionDirector);
         this.destroyListeners = new LinkedList<>();
         this.attributes = new ConcurrentHashMap<>();
@@ -104,12 +129,18 @@ public abstract class ScopeModel implements ExtensionAccessor {
         }
     }
 
+    /**
+     * model组件要被销毁了
+     */
     public void destroy() {
+        // CAS操作 多线程并发访问这个方法，是线程安全的
         if (destroyed.compareAndSet(false, true)) {
             try {
+                // 调用onDestroy 那么destroyListeners里的监听器就会进行回调
                 onDestroy();
                 HashSet<ClassLoader> copyOfClassLoaders = new HashSet<>(classLoaders);
                 for (ClassLoader classLoader : copyOfClassLoaders) {
+                    // 做一些清理型的操作
                     removeClassLoader(classLoader);
                 }
                 if (beanFactory != null) {

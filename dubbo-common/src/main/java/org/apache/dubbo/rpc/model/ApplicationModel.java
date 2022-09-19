@@ -54,9 +54,12 @@ import java.util.concurrent.atomic.AtomicInteger;
 public class ApplicationModel extends ScopeModel {
     protected static final Logger LOGGER = LoggerFactory.getLogger(ApplicationModel.class);
     public static final String NAME = "ApplicationModel";
+
+    // 包含了多个moduleModel
     private final List<ModuleModel> moduleModels = new CopyOnWriteArrayList<>();
     private final List<ModuleModel> pubModuleModels = new CopyOnWriteArrayList<>();
     private Environment environment;
+    // 服务配置相关信息
     private ConfigManager configManager;
     private ServiceRepository serviceRepository;
     private ApplicationDeployer deployer;
@@ -65,6 +68,7 @@ public class ApplicationModel extends ScopeModel {
 
     private ModuleModel internalModule;
 
+    // volatile修饰
     private volatile ModuleModel defaultModule;
 
     // internal module index is 0, default module index is 1
@@ -190,6 +194,7 @@ public class ApplicationModel extends ScopeModel {
 
     // ------------- instance methods ---------------//
 
+    // 构造函数中需要传入一个FrameworkModel
     public ApplicationModel(FrameworkModel frameworkModel) {
         this(frameworkModel, false);
     }
@@ -198,6 +203,7 @@ public class ApplicationModel extends ScopeModel {
         super(frameworkModel, ExtensionScope.APPLICATION, isInternal);
         Assert.notNull(frameworkModel, "FrameworkModel can not be null");
         this.frameworkModel = frameworkModel;
+        // 把当前ApplicationModel设置进去
         frameworkModel.addApplication(this);
         if (LOGGER.isInfoEnabled()) {
             LOGGER.info(getDesc() + " is created");

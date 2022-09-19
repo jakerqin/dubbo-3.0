@@ -39,16 +39,24 @@ import java.util.stream.Collectors;
 
 /**
  * A bean factory for internal sharing.
+ *
+ * 它是dubbo框架自己内部实现的一个bean工厂，bean工厂是管理的这些bean，用于在dubbo框架内部进行共享的
  */
 public class ScopeBeanFactory {
 
     protected static final Logger LOGGER = LoggerFactory.getLogger(ScopeBeanFactory.class);
 
+    // 父级组件。可以组成一棵树
     private final ScopeBeanFactory parent;
+    // extension扩展实例的获取组件，有了这个东西，就有了对SPI机制使用的权限
     private ExtensionAccessor extensionAccessor;
+    // extension实例后处理器
     private List<ExtensionPostProcessor> extensionPostProcessors;
+    // 每一个class都有一个AtomicInteger作为一个计数器
     private Map<Class, AtomicInteger> beanNameIdCounterMap = new ConcurrentHashMap<>();
+    // 注册过的bean实例信息
     private List<BeanInfo> registeredBeanInfos = new CopyOnWriteArrayList<>();
+    // 初始化策略逻辑，用于bean实例的初始化
     private InstantiationStrategy instantiationStrategy;
     private AtomicBoolean destroyed = new AtomicBoolean();
 
@@ -72,8 +80,10 @@ public class ScopeBeanFactory {
     }
 
     public <T> T registerBean(Class<T> bean) throws ScopeBeanException {
+        // 参数name一开始为空。或者说可以为空
         return this.getOrRegisterBean(null, bean);
     }
+
 
     public <T> T registerBean(String name, Class<T> clazz) throws ScopeBeanException {
         return getOrRegisterBean(name, clazz);
@@ -86,10 +96,12 @@ public class ScopeBeanFactory {
             throw new ScopeBeanException("already exists bean with same name and type, name=" + name + ", type=" + clazz.getName());
         }
         try {
+            // 直接就用你的实现类的class，初始化一个实例对象
             instance = instantiationStrategy.instantiate(clazz);
         } catch (Throwable e) {
             throw new ScopeBeanException("create bean instance failed, type=" + clazz.getName(), e);
         }
+        // 注册bean
         registerBean(name, instance);
         return instance;
     }
@@ -107,8 +119,10 @@ public class ScopeBeanFactory {
 
         Class<?> beanClass = bean.getClass();
         if (name == null) {
+            // 生成name
             name = beanClass.getName() + "#" + getNextId(beanClass);
         }
+        // 初始化bean，设置一些属性。设置ExtensionAccessor、后处理器
         initializeBean(name, bean);
 
         registeredBeanInfos.add(new BeanInfo(name, bean));
@@ -120,11 +134,13 @@ public class ScopeBeanFactory {
 
     public <T> T getOrRegisterBean(String name, Class<T> type) {
         T bean = getBean(name, type);
+        // bean为空，double check获取bean
         if (bean == null) {
             // lock by type
             synchronized (type) {
                 bean = getBean(name, type);
                 if (bean == null) {
+                    // 实在获取不到，创建
                     bean = createAndRegisterBean(name, type);
                 }
             }
@@ -189,8 +205,10 @@ public class ScopeBeanFactory {
     }
 
     public <T> T getBean(String name, Class<T> type) {
+        // 先从内部获取bean
         T bean = getBeanInternal(name, type);
         if (bean == null && parent != null) {
+            // 内部没获取到，尝试从父容器中获取
             return parent.getBean(name, type);
         }
         return bean;
@@ -204,6 +222,7 @@ public class ScopeBeanFactory {
         }
         List<BeanInfo> candidates = null;
         BeanInfo firstCandidate = null;
+        // 遍历registeredBeanInfos，获取指定的bean
         for (BeanInfo beanInfo : registeredBeanInfos) {
             // if required bean type is same class/superclass/interface of the registered bean
             if (type.isAssignableFrom(beanInfo.instance.getClass())) {

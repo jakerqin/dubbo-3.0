@@ -57,6 +57,7 @@ public class ModuleConfigManager extends AbstractConfigManager implements Module
 
     public static final String NAME = "moduleConfig";
 
+    // 存放服务相关的一些配置数据
     private Map<String, AbstractInterfaceConfig> serviceConfigCache = new ConcurrentHashMap<>();
     private final ConfigManager applicationConfigManager;
 

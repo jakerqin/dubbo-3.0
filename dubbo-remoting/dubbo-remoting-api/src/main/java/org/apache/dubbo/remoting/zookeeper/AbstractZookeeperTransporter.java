@@ -60,12 +60,14 @@ public abstract class AbstractZookeeperTransporter implements ZookeeperTransport
             return zookeeperClient;
         }
         // avoid creating too many connections， so add lock
+        // 双重检查
         synchronized (zookeeperClientMap) {
+            // 从缓存换取client
             if ((zookeeperClient = fetchAndUpdateZookeeperClientCache(addressList)) != null && zookeeperClient.isConnected()) {
                 logger.info("find valid zookeeper client from the cache for address: " + url);
                 return zookeeperClient;
             }
-
+            // 创建client并放入缓存中
             zookeeperClient = createZookeeperClient(url);
             logger.info("No valid zookeeper client found from cache, therefore create a new client for url. " + url);
             writeToClientMap(addressList, zookeeperClient);

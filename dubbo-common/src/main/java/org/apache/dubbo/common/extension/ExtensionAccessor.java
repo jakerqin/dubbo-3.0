@@ -18,9 +18,14 @@ package org.apache.dubbo.common.extension;
 
 /**
  * Uniform accessor for extension
+ * 提供一些获取扩展类的方法
  */
 public interface ExtensionAccessor {
 
+    /**
+     * 获取extensionDirector
+     * @return
+     */
     ExtensionDirector getExtensionDirector();
 
     default <T> ExtensionLoader<T> getExtensionLoader(Class<T> type) {

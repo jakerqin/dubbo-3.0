@@ -48,17 +48,21 @@ public class FrameworkModel extends ScopeModel {
     private final AtomicLong appIndex = new AtomicLong(0);
 
     private static final Object globalLock = new Object();
-    
+
+    // 默认实例 单例
     private volatile static FrameworkModel defaultInstance;
 
     private volatile ApplicationModel defaultAppModel;
 
+    // 他是没有父层级的，所以只能通过static静态变量，类级别去引用自己的framework models集合
     private static List<FrameworkModel> allInstances = new CopyOnWriteArrayList<>();
 
+    // 持有多个application models
     private List<ApplicationModel> applicationModels = new CopyOnWriteArrayList<>();
 
     private List<ApplicationModel> pubApplicationModels = new CopyOnWriteArrayList<>();
 
+    // 通过framework、application、model各个层级都可以获取到service相关的配置
     private FrameworkServiceRepository serviceRepository;
 
     private ApplicationModel internalApplicationModel;

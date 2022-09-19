@@ -70,6 +70,8 @@ public class Curator5ZookeeperClient extends AbstractZookeeperClient<Curator5Zoo
         try {
             int timeout = url.getParameter(TIMEOUT_KEY, DEFAULT_CONNECTION_TIMEOUT_MS);
             int sessionExpireMs = url.getParameter(SESSION_KEY, DEFAULT_SESSION_TIMEOUT_MS);
+            // 基于curator框架去构建zk client，curator是zk在使用的时候，最常用的一个框架
+            // 对zk原生client做了一层包装
             CuratorFrameworkFactory.Builder builder = CuratorFrameworkFactory.builder()
                     .connectString(url.getBackupAddress())
                     .retryPolicy(new RetryNTimes(1, 1000))
@@ -91,8 +93,10 @@ public class Curator5ZookeeperClient extends AbstractZookeeperClient<Curator5Zoo
                 });
             }
             client = builder.build();
+            // 创建连接监听
             client.getConnectionStateListenable().addListener(new CuratorConnectionStateListener(url));
             client.start();
+            // 阻塞等待连接
             boolean connected = client.blockUntilConnected(timeout, TimeUnit.MILLISECONDS);
             if (!connected) {
                 throw new IllegalStateException("zookeeper not connected");
@@ -409,6 +413,11 @@ public class Curator5ZookeeperClient extends AbstractZookeeperClient<Curator5Zoo
             this.sessionExpireMs = url.getParameter(SESSION_KEY, DEFAULT_SESSION_TIMEOUT_MS);
         }
 
+        /**
+         * 连接状态变更
+         * @param client
+         * @param state
+         */
         @Override
         public void stateChanged(CuratorFramework client, ConnectionState state) {
             long sessionId = UNKNOWN_SESSION_ID;

@@ -44,7 +44,11 @@ public enum ExtensionScope {
 
     /**
      * The extension instance is used within one application, shared with all modules of the application,
+     * 一个application是有多个modules，在一个application model里创建的extension实例，除了给自己application model使用之外，还可以共享自己的子model来使用
      * and different applications create different extension instances.
+     * 如果是不同的application创建出来的extension实例是不同的
+     *
+     * 所以module model是一个最底层的model，所以他创建出来的extension实例只能在这一层级使用
      *
      * <p>Application scope SPI extension can obtain {@link FrameworkModel} and {@link ApplicationModel},
      * cannot get the {@link ModuleModel}.</p>

@@ -110,15 +110,20 @@ public class ExtensionLoader<T> {
 
     private final Class<?> type;
 
+    // 注入器
     private final ExtensionInjector injector;
 
+    // 缓存名称
     private final ConcurrentMap<Class<?>, String> cachedNames = new ConcurrentHashMap<>();
 
+    // 缓存类
     private final Holder<Map<String, Class<?>>> cachedClasses = new Holder<>();
-
+    // 缓存的Activate对应的一些东西
     private final Map<String, Object> cachedActivates = Collections.synchronizedMap(new LinkedHashMap<>());
     private final Map<String, Set<String>> cachedActivateGroups = Collections.synchronizedMap(new LinkedHashMap<>());
     private final Map<String, String[][]> cachedActivateValues = Collections.synchronizedMap(new LinkedHashMap<>());
+    // 缓存起来的实例集合
+    // 存放的是name -> extension实现类holder的映射
     private final ConcurrentMap<String, Holder<Object>> cachedInstances = new ConcurrentHashMap<>();
     private final Holder<Object> cachedAdaptiveInstance = new Holder<>();
     private volatile Class<?> cachedAdaptiveClass = null;
@@ -141,6 +146,7 @@ public class ExtensionLoader<T> {
      * Record all unacceptable exceptions when using SPI
      */
     private Set<String> unacceptableExceptions = new ConcurrentHashSet<>();
+    // 老重要了
     private ExtensionDirector extensionDirector;
     private List<ExtensionPostProcessor> extensionPostProcessors;
     private InstantiationStrategy instantiationStrategy;
@@ -201,7 +207,10 @@ public class ExtensionLoader<T> {
         this.type = type;
         this.extensionDirector = extensionDirector;
         this.extensionPostProcessors = extensionDirector.getExtensionPostProcessors();
+        // 初始化extension实例构建的策略逻辑
         initInstantiationStrategy();
+        // 自己用SPI机制，获取到了extension injector
+        // injector注入器（依赖注入），extension实例构建的过程中，需要一个依赖注入的过程
         this.injector = (type == ExtensionInjector.class ? null : extensionDirector.getExtensionLoader(ExtensionInjector.class)
             .getAdaptiveExtension());
         this.activateComparator = new ActivateComparator(extensionDirector);
@@ -496,6 +505,7 @@ public class ExtensionLoader<T> {
     }
 
     private Holder<Object> getOrCreateHolder(String name) {
+        // 创建并放入缓存中
         Holder<Object> holder = cachedInstances.get(name);
         if (holder == null) {
             cachedInstances.putIfAbsent(name, new Holder<>());
@@ -527,8 +537,10 @@ public class ExtensionLoader<T> {
      * Find the extension with the given name. If the specified name is not found, then {@link IllegalStateException}
      * will be thrown.
      * 通过参数name寻找发现SPI机制中的扩展
+     * @param name 一般是从你的SPI注解里提取出来的一个name(接口实现)
      */
     public T getExtension(String name) {
+        // wrap参数默认是true
         T extension = getExtension(name, true);
         if (extension == null) {
             throw new IllegalArgumentException("Not find extension: " + name);
@@ -550,7 +562,7 @@ public class ExtensionLoader<T> {
         if (!wrap) {
             cacheKey += "_origin";
         }
-        // 他基于这个cache key，构建和创建了一个holder 容器
+        // 他基于这个cache key，构建和创建了一个holder 容器 cachedInstances
         final Holder<Object> holder = getOrCreateHolder(cacheKey);
         Object instance = holder.get();
         // 如果是空的，构建。线程安全的double check。锁的是holder
@@ -764,6 +776,7 @@ public class ExtensionLoader<T> {
     @SuppressWarnings("unchecked")
     private T createExtension(String name, boolean wrap) {
         // getExtensionClasses()通过Dubbo的SPI规范读取所有的的扩展类，并存储起来，下次就不从配置文件中读取了
+        // 通过指定的配置文件读取和解析，先去拿到extension classes，通过实现类的短名称，去获取对应class的对象
         Class<?> clazz = getExtensionClasses().get(name);
         if (clazz == null || unacceptableExceptions.contains(name)) {
             throw findException(name);
@@ -781,7 +794,7 @@ public class ExtensionLoader<T> {
                 // 做一个具体对这个实例对象初始化之后的post process
                 instance = postProcessAfterInitialization(instance, name);
             }
-            // 如果需要包装
+            // 如果需要包装，默认就是true
             if (wrap) {
                 List<Class<?>> wrapperClassesList = new ArrayList<>();
                 if (cachedWrapperClasses != null) {
@@ -947,6 +960,8 @@ public class ExtensionLoader<T> {
     }
 
     private Map<String, Class<?>> getExtensionClasses() {
+        // cachedClasses 实现类短名称 -》实现类class映射关系，这也是为什么要把cachedClasses放到一个holder里去
+        // 为了下面的加锁
         Map<String, Class<?>> classes = cachedClasses.get();
         if (classes == null) {
             //再双重检查
@@ -973,12 +988,16 @@ public class ExtensionLoader<T> {
     @SuppressWarnings("deprecation")
     private Map<String, Class<?>> loadExtensionClasses() throws InterruptedException {
         checkDestroyed();
+        // 缓存默认的扩展名称
         cacheDefaultExtensionName();
 
+        // 扩展类的集合，短名称 -> 实现类Class的映射关系
+        // 我的这个接口对应的所有的实现类，都有那些，每个实现类都有自己的class类型，name短名称都有那些
         Map<String, Class<?>> extensionClasses = new HashMap<>();
 
         // 遍历加载策略
         for (LoadingStrategy strategy : strategies) {
+            // 读取指定目录下的接口配置文件，解析配置文件，读取出每个实现类的短名称和class类型
             loadDirectory(extensionClasses, strategy, type.getName());
 
             // compatible with old ExtensionFactory

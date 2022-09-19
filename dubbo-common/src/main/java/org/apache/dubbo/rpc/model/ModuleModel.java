@@ -35,28 +35,38 @@ import java.util.Set;
 
 /**
  * Model of a service module
+ *
+ * 属于一个service module的module，是属于一个服务模块的model组件模型
  */
 public class ModuleModel extends ScopeModel {
     private static final Logger logger = LoggerFactory.getLogger(ModuleModel.class);
 
     public static final String NAME = "ModuleModel";
 
+    // 引用applicationModel
     private final ApplicationModel applicationModel;
+    // service module环境相关的数据，封装的都是各种各样的配置信息
     private ModuleEnvironment moduleEnvironment;
-    // 属于关键性的一个组件，服务仓储
+    // 属于关键性的一个组件，服务仓储。存储的都是服务的数据
     private ModuleServiceRepository serviceRepository;
+    // 存储一些服务相关的配置信息
     private ModuleConfigManager moduleConfigManager;
     // module deployer组件
+    // 对一些其他的组件模块，管理其生命周期，初始化、启动、停止、预销毁、销毁后处理
     private ModuleDeployer deployer;
 
     public ModuleModel(ApplicationModel applicationModel) {
         this(applicationModel, false);
     }
 
+    // 在构造module model的时候，会传递进来一个application model
+    // 所以module model一般来说，是把application model当做自己的父组件的
     public ModuleModel(ApplicationModel applicationModel, boolean isInternal) {
         super(applicationModel, ExtensionScope.MODULE, isInternal);
         Assert.notNull(applicationModel, "ApplicationModel can not be null");
+        // 赋值
         this.applicationModel = applicationModel;
+        // 把当前model加入到applicationModel里去
         applicationModel.addModule(this, isInternal);
         if (LOGGER.isInfoEnabled()) {
             LOGGER.info(getDesc() + " is created");
@@ -80,9 +90,14 @@ public class ModuleModel extends ScopeModel {
         this.serviceRepository = new ModuleServiceRepository(this);
 
         initModuleExt();
-
+        // 通过SPI机制先获取到ScopeModelInitializer接口的extension loader
+        // dubbo为什么说基于SPI机制，把扩展性做的特别好，他几乎把他所有的核心组件都做成可以基于SPI机制进行扩展和自定义
         ExtensionLoader<ScopeModelInitializer> initializerExtensionLoader = this.getExtensionLoader(ScopeModelInitializer.class);
+        // 再通过SPI机制，去获取接口对应的extension实现类的实例
         Set<ScopeModelInitializer> initializers = initializerExtensionLoader.getSupportedExtensionInstances();
+        // 做一个遍历，直接回调initializeModuleModel方法，如果说你要扩展这里
+        // 你去自定义ScopeModelInitializer接口实现类，再dubbo初始化的过程中，立刻就会去回调你自己的SPI扩展
+        // 这是一个dubbo留下给使用者的扩展点
         for (ScopeModelInitializer initializer : initializers) {
             initializer.initializeModuleModel(this);
         }

@@ -33,14 +33,20 @@ import java.util.concurrent.atomic.AtomicBoolean;
  */
 public class ExtensionDirector implements ExtensionAccessor {
 
+    // key就是接口类型的class对象，value就是extension loader
     private final ConcurrentMap<Class<?>, ExtensionLoader<?>> extensionLoadersMap = new ConcurrentHashMap<>(64);
     private final ConcurrentMap<Class<?>, ExtensionScope> extensionScopeMap = new ConcurrentHashMap<>(64);
+    // extension director自己，是一个父级组件，会有一个树形的关系
     private final ExtensionDirector parent;
+    // 获取到的扩展的实现对象，他的使用范围是有多宽
     private final ExtensionScope scope;
+    // extension扩展实例的后处理器，extension实例之后需要进行后处理
     private final List<ExtensionPostProcessor> extensionPostProcessors = new ArrayList<>();
+    // 每个model组件都会关联一个extension directory组件，反过来，也会关联一个model组件
     private final ScopeModel scopeModel;
     private final AtomicBoolean destroyed = new AtomicBoolean();
 
+    // 构造参数需要传这些，parent就很关键了
     public ExtensionDirector(ExtensionDirector parent, ExtensionScope scope, ScopeModel scopeModel) {
         this.parent = parent;
         this.scope = scope;
@@ -62,6 +68,12 @@ public class ExtensionDirector implements ExtensionAccessor {
         return this;
     }
 
+    /**
+     * extension loader的管理组件，拿到各种接口的extension loader，去拿到接口的扩展实现类
+     * @param type
+     * @param <T>
+     * @return
+     */
     @Override
     @SuppressWarnings("unchecked")
     public <T> ExtensionLoader<T> getExtensionLoader(Class<T> type) {
@@ -78,28 +90,39 @@ public class ExtensionDirector implements ExtensionAccessor {
         }
 
         // 1. find in local cache
+        // 按照你的接口的class类型去获取extension loader缓存
         ExtensionLoader<T> loader = (ExtensionLoader<T>) extensionLoadersMap.get(type);
 
+        // 拿到作用的范围
         ExtensionScope scope = extensionScopeMap.get(type);
         if (scope == null) {
+            // 从接口class里面拿到对接口打得SPI注解
             SPI annotation = type.getAnnotation(SPI.class);
             scope = annotation.scope();
+            // 拿到这个SPI注解之后，就会获取这个注解里的scope范围，extension scope，并保存起来
             extensionScopeMap.put(type, scope);
         }
 
+        // 获取出来的extension loader是空的，同时scope是self范围
         if (loader == null && scope == ExtensionScope.SELF) {
             // create an instance in self scope
+            // 创建extension loader并保存
             loader = createExtensionLoader0(type);
         }
 
         // 2. find in parent
+        // 如果说extension loader没有拿到，同时范围还不是self
         if (loader == null) {
+            // 在创建的extension loader的过程中，会有父组件的依赖和搜寻
             if (this.parent != null) {
+                // 通过父类
                 loader = this.parent.getExtensionLoader(type);
             }
         }
 
         // 3. create it
+        // 创建一个extension loader分为四步，第一步：先去缓存搜索；第二步：scope=self尝试自己创建；第三步：parent中搜索
+        // 最后一步：直接尝试自己去创建
         if (loader == null) {
             loader = createExtensionLoader(type);
         }
@@ -120,7 +143,9 @@ public class ExtensionDirector implements ExtensionAccessor {
     private <T> ExtensionLoader<T> createExtensionLoader0(Class<T> type) {
         checkDestroyed();
         ExtensionLoader<T> loader;
+        // 直接new 了一个extensionLoader
         extensionLoadersMap.putIfAbsent(type, new ExtensionLoader<T>(type, this, scopeModel));
+        // 保存起来
         loader = (ExtensionLoader<T>) extensionLoadersMap.get(type);
         return loader;
     }

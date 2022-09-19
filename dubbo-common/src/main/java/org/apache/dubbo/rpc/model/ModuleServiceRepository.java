@@ -32,6 +32,8 @@ import java.util.stream.Collectors;
 
 /**
  * Service repository for module
+ *
+ * 服务相关的一些数据，都放在了这个仓储组件里
  */
 public class ModuleServiceRepository {
 

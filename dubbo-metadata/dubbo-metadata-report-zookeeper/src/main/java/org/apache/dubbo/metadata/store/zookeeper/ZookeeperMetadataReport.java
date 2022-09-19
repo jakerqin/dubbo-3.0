@@ -52,6 +52,13 @@ import static org.apache.dubbo.metadata.ServiceNameMapping.getAppNames;
 
 /**
  * ZookeeperMetadataReport
+ *
+ * 关于元数据的存储。很重要，任何一个服务实例，都是需要具备自己的一些元数据的
+ * 如何对服务实例进行描述，接口名称啊、版本号名称诸如此类的一些东西
+ * 既然有了元数据之后，就必须有地方来存储元数据，对于很多的框架或者系统，元数据存储，在本地磁盘文件里的
+ * 如果是本地磁盘文件里，就会导致一个问题，如果别人想要读取你的元数据，不是分布式
+ *
+ * 所以dubbo选择把他的注册中心，作为配置中心、元数据中心
  */
 public class ZookeeperMetadataReport extends AbstractMetadataReport {
 

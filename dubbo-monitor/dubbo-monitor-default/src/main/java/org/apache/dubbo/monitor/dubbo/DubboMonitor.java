@@ -80,6 +80,7 @@ public class DubboMonitor implements Monitor {
         // The time interval for timer <b>scheduledExecutorService</b> to send data
         final long monitorInterval = monitorInvoker.getUrl().getPositiveParameter(MONITOR_SEND_DATA_INTERVAL_KEY, DEFAULT_MONITOR_SEND_DATA_INTERVAL);
         // collect timer for collecting statistics data
+        // 周期性的运转
         sendFuture = scheduledExecutorService.scheduleWithFixedDelay(() -> {
             try {
                 // collect data
@@ -96,6 +97,8 @@ public class DubboMonitor implements Monitor {
         }
 
         String timestamp = String.valueOf(System.currentTimeMillis());
+
+        // 对统计数据进行遍历
         for (Map.Entry<Statistics, AtomicReference<StatisticsItem>> entry : statisticsMap.entrySet()) {
             // get statistics data
             Statistics statistics = entry.getKey();
@@ -104,6 +107,7 @@ public class DubboMonitor implements Monitor {
 
             // send statistics data
             URL url = statistics.getUrl()
+                // 拿到dubbo框架自己的一些统计数据，进行封装成Url
                 .addParameters(TIMESTAMP_KEY, timestamp,
                     SUCCESS_KEY, String.valueOf(statisticsItem.getSuccess()),
                     FAILURE_KEY, String.valueOf(statisticsItem.getFailure()),

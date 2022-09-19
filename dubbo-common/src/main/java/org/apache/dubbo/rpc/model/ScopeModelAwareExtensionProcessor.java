@@ -50,9 +50,20 @@ public class ScopeModelAwareExtensionProcessor implements ExtensionPostProcessor
         }
     }
 
+    /**
+     * 后续你的model组件通过SPI机制创建出了一个extension实例之后
+     * 会进行回调和后处理，回调你的scope model的后处理监听器，把extension实例（下面参数的instance）交给你进行处理
+     * @param instance
+     * @param name
+     * @return
+     * @throws Exception
+     */
     @Override
     public Object postProcessAfterInitialization(Object instance, String name) throws Exception {
         if (instance instanceof ScopeModelAware) {
+            // 所谓的处理，就是让创建出的extension实例，如果是实现了scopeModelAware接口
+            // 那个SPI的extension实例，是需要感知到对应的model组件的
+            // 就会把model组件自己设置到你的extension实例里去，让你的extension实例感知到
             ScopeModelAware modelAware = (ScopeModelAware) instance;
             modelAware.setScopeModel(scopeModel);
             if (this.moduleModel != null) {
