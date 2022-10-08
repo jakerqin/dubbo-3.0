@@ -70,6 +70,7 @@ public class ProviderConfig extends AbstractServiceConfig {
 
     /**
      * IO thread pool size (fixed size)
+     * IO线程池
      */
     private Integer iothreads;
 
@@ -120,6 +121,7 @@ public class ProviderConfig extends AbstractServiceConfig {
 
     /**
      * Thread dispatching mode
+     * 对于各种网络时间，是采用神策略分发给业务线程池
      */
     private String dispatcher;
 

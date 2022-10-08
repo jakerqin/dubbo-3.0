@@ -309,6 +309,12 @@ public abstract class AbstractInterfaceConfig extends AbstractMethodConfig {
         return getScopeModel().getModelEnvironment();
     }
 
+    /**
+     * 最最核心的就是通过反射技术，对我们暴露的接口、方法和参数进行反射
+     * 把方法和参数都进行MethodConfig、ArgumentConfig的一个封装，包括做一些校验的处理
+     * @param preferredPrefix
+     * @param subPropsConfiguration
+     */
     @Override
     protected void processExtraRefresh(String preferredPrefix, InmemoryConfiguration subPropsConfiguration) {
         if (StringUtils.hasText(interfaceName)) {
@@ -327,17 +333,26 @@ public abstract class AbstractInterfaceConfig extends AbstractMethodConfig {
             Map<String, String> configProperties = subPropsConfiguration.getProperties();
             Method[] methods;
             try {
+                // 获取对外暴露接口的各种方法
                 methods = interfaceClass.getMethods();
             } catch (Throwable e) {
                 // NoClassDefFoundError may be thrown if interface class's dependency jar is missing
                 return;
             }
-
+            // 对暴露服务接口进行处理，通过java反射的技术拿到你的接口class
+            // 以及你的接口class里面的方法，每个方法其实就是一个当前的服务对外暴露的一个可以调用的小接口
             for (Method method : methods) {
                 if (ConfigurationUtils.hasSubProperties(configProperties, method.getName())) {
                     MethodConfig methodConfig = getMethodByName(method.getName());
+                    // 在这个过程中，非常关键的一点，就是说要把我们的接口里的每个方法都搞一个MethodConfig
+                    // 每个MethodConfig里，也都需要一批ArgumentConfig
+                    // 这么做的好处就是，作为对外暴露的接口，后续要被人调用，肯定说是会需要访问以及知道你的方法和参数的一些情况
+                    // 总不能每次都要进行反射调用，拿到method和args去进行处理
+                    // 还不如刚开始启动，就对你的接口进行解析，拿到所有的method和args进行处理
+
                     // Add method config if not found
                     if (methodConfig == null) {
+                        // 会给对外暴露的接口里，每个方法，都会去创建一个对应的MethodConfig
                         methodConfig = new MethodConfig();
                         methodConfig.setName(method.getName());
                         this.addMethod(methodConfig);
@@ -348,7 +363,7 @@ public abstract class AbstractInterfaceConfig extends AbstractMethodConfig {
                     for (int i = 0; i < arguments.length; i++) {
                         if (getArgumentByIndex(methodConfig, i) == null &&
                             hasArgumentConfigProps(configProperties, methodConfig.getName(), i)) {
-
+                            // 对方法里的每个args参数都搞一个对应的ArgumentConfig
                             ArgumentConfig argumentConfig = new ArgumentConfig();
                             argumentConfig.setIndex(i);
                             methodConfig.addArgument(argumentConfig);
@@ -357,7 +372,7 @@ public abstract class AbstractInterfaceConfig extends AbstractMethodConfig {
                 }
             }
 
-            // refresh MethodConfigs
+            // refresh MethodConfigs 拿到上面解析出来的MethodCOnfig
             List<MethodConfig> methodConfigs = this.getMethods();
             if (methodConfigs != null && methodConfigs.size() > 0) {
                 // whether ignore invalid method config
@@ -368,7 +383,9 @@ public abstract class AbstractInterfaceConfig extends AbstractMethodConfig {
                 Class<?> finalInterfaceClass = interfaceClass;
                 List<MethodConfig> validMethodConfigs = methodConfigs.stream().filter(methodConfig -> {
                     methodConfig.setParentPrefix(preferredPrefix);
+                    // 设置Model组件
                     methodConfig.setScopeModel(getScopeModel());
+                    // 还是一样的刷新
                     methodConfig.refresh();
                     // verify method config
                     return verifyMethodConfig(methodConfig, finalInterfaceClass, ignoreInvalidMethodConfig);

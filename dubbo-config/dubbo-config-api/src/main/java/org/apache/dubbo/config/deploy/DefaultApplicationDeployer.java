@@ -186,6 +186,7 @@ public class DefaultApplicationDeployer extends AbstractDeployer<ApplicationMode
             // register shutdown hook
             registerShutdownHook();
             // 开启配置中心
+            // 这些东西，其实就是deployer组件最关键的要干的事情
             startConfigCenter();
 
             loadApplicationConfigs();
@@ -222,6 +223,10 @@ public class DefaultApplicationDeployer extends AbstractDeployer<ApplicationMode
         configManager.loadConfigs();
     }
 
+    /**
+     * configCenter 配置中心连接外部的如appllo、nacos、zookeeper别的什么东西
+     * 实现动态化的配置
+     */
     private void startConfigCenter() {
 
         // load application config
@@ -319,6 +324,7 @@ public class DefaultApplicationDeployer extends AbstractDeployer<ApplicationMode
         if (defaultRegistries.size() > 0) {
             defaultRegistries
                 .stream()
+                // 过滤
                 .filter(this::isUsedRegistryAsConfigCenter)
                 .map(this::registryAsConfigCenter)
                 .forEach(configCenter -> {

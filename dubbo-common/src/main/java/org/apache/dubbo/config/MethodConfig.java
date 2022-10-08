@@ -65,11 +65,13 @@ public class MethodConfig extends AbstractMethodConfig {
 
     /**
      * If it's reliable
+     * 方法是否可靠
      */
     private Boolean reliable;
 
     /**
      * Thread limits for method invocations
+     * 允许多少线程并发访问
      */
     private Integer executes;
 
@@ -80,6 +82,8 @@ public class MethodConfig extends AbstractMethodConfig {
 
     /**
      * Whether to enable sticky
+     * sticky机制如果一旦启动了，粘滞调用，尽可能的会让你的一个consumer端就针对你的一个指定的provider端的实例发起调用
+     * 把你的一个consumer端和你的一个provider端粘在一起。如果provider挂了，也会转移
      */
     private Boolean sticky;
 

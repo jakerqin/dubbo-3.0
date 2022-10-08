@@ -661,8 +661,12 @@ public abstract class AbstractConfig implements Serializable {
     public void refresh() {
         try {
             // check and init before do refresh
+            // 搞了一个providerConfig
+            // provider服务实例对应的一些信息都在里面
             preProcessRefresh();
 
+            // model组件体系还是很关键的，是SPI机制使用的入口，封装了repository，environment，bean factory等等，很多通用的组件
+            // 在这里，核心就是去拿到你的一些配置信息
             Environment environment = getScopeModel().getModelEnvironment();
             List<Map<String, String>> configurationMaps = environment.getConfigurationMaps();
 
@@ -697,7 +701,7 @@ public abstract class AbstractConfig implements Serializable {
                     " with prefix [" + preferredPrefix +
                     "], extracted props: " + subProperties);
             }
-
+            // 进行一些配置信息之类的东西，使用反射做一个注入，注入我们需要的方法
             assignProperties(this, environment, subProperties, subPropsConfiguration);
 
             // process extra refresh of subclass, e.g. refresh method configs
@@ -706,6 +710,9 @@ public abstract class AbstractConfig implements Serializable {
             // dubbo.service代表dubbo的一个服务名称的一个固定前缀，固定拼接的
             // 中间的org.apache.dubbo.demo其实是从你的包名里截取出来的，最后加上服务接口的接口名
             // 很可能把这串东西作为当前这个dubbo服务的全限定的名字
+
+            // 最最核心的就是通过反射技术，对我们暴露的接口、方法和参数进行反射
+            // 把方法和参数都进行MethodConfig、ArgumentConfig的一个封装，包括做一些校验的处理
             processExtraRefresh(preferredPrefix, subPropsConfiguration);
 
         } catch (Exception e) {

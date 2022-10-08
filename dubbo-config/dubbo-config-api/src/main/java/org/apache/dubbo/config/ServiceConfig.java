@@ -292,6 +292,8 @@ public class ServiceConfig<T> extends ServiceConfigBase<T> {
         checkProtocol();
 
         // init some null configuration.
+        // 这里有一个SPI机制的使用，是去使用了Activate自动激活的机制
+        // 在整个阅读dubbo源码细节的过程中，我们看到了SPI的使用，adaptive自适应 可以去仔细看一下SPI的细节
         List<ConfigInitializer> configInitializers = this.getExtensionLoader(ConfigInitializer.class)
             .getActivateExtension(URL.valueOf("configInitializer://", getScopeModel()), (String[]) null);
         configInitializers.forEach(e -> e.initServiceConfig(this));

@@ -337,6 +337,18 @@ public class ExtensionLoader<T> {
      */
     @SuppressWarnings("deprecation")
     public List<T> getActivateExtension(URL url, String[] values, String group) {
+        // 扩展性的思考，如果让你来设计一款框架，干很多事情，任何一个框架都是需要有扩展机制
+        // 扩展机制，你会如何来设计？
+        // 一般来说很多其他的框架，都有自己的扩展机制，在配置文件里，可以做一些配置项
+        // xx.xx.xx.class=xx.xx.xx.xMyClass
+        // 框架在运行的时候，就会加载这个配置，然后就会把你提供的类加载进来，作为具体的实现就可以了
+        // 对于一个框架运行过程中，一般就开放少数的一些组件可以让你去进行定制
+        // SPI机制，做的就比较彻底了，大量的核心组件，都是可以替换的，让整个框架的扩展性和定制性更高
+        // 如果我们就是一些业务系统的话，一般来说还不需要用到dubbo的SPI扩展机制
+
+        // 根据你的@Activate注解，对你的一个接口可以自动激活多个实现类
+
+
         checkDestroyed();
         // solve the bug of using @SPI's wrapper method to report a null pointer exception.
         Map<Class<?>, T> activateExtensionsMap = new TreeMap<>(activateComparator);
@@ -347,14 +359,19 @@ public class ExtensionLoader<T> {
                 synchronized (cachedActivateGroups) {
                     // cache all extensions
                     if (cachedActivateGroups.size() == 0) {
+                        // 基于配置文件去加载你的接口所有的实现类
                         getExtensionClasses();
+
+                        // 这里他核心是要处理被缓存起来的@Activate一个一个的注解
                         for (Map.Entry<String, Object> entry : cachedActivates.entrySet()) {
+                            // 拿到缓存好的名称和自动激活的对象实例（@Activate注解）
                             String name = entry.getKey();
                             Object activate = entry.getValue();
 
                             String[] activateGroup, activateValue;
 
                             if (activate instanceof Activate) {
+                                // 就会从@Activate注解里提取出来对应的group和value两个属性
                                 activateGroup = ((Activate) activate).group();
                                 activateValue = ((Activate) activate).value();
                             } else if (activate instanceof com.alibaba.dubbo.common.extension.Activate) {
@@ -363,6 +380,7 @@ public class ExtensionLoader<T> {
                             } else {
                                 continue;
                             }
+                            // 提取出来的group放入缓存
                             cachedActivateGroups.put(name, new HashSet<>(Arrays.asList(activateGroup)));
                             String[][] keyPairs = new String[activateValue.length][];
                             for (int i = 0; i < activateValue.length; i++) {
@@ -376,6 +394,7 @@ public class ExtensionLoader<T> {
                                     keyPairs[i][0] = activateValue[i];
                                 }
                             }
+                            // 提取出来的value放入缓存
                             cachedActivateValues.put(name, keyPairs);
                         }
                     }
@@ -383,12 +402,14 @@ public class ExtensionLoader<T> {
             }
 
             // traverse all cached extensions
+            // 遍历所有缓存的扩展
             cachedActivateGroups.forEach((name, activateGroup) -> {
-                if (isMatchGroup(group, activateGroup)
+                if (isMatchGroup(group, activateGroup)  // 判断上面初始化的groups和传进来的group是否匹配
                     && !namesSet.contains(name)
                     && !namesSet.contains(REMOVE_VALUE_PREFIX + name)
                     && isActive(cachedActivateValues.get(name), url)) {
 
+                    // 根据你的name，去获取到每个name对应的extension class，还有获取一个extension实例。并保存
                     activateExtensionsMap.put(getExtensionClass(name), getExtension(name));
                 }
             });
@@ -411,6 +432,7 @@ public class ExtensionLoader<T> {
                     extensionsResult.add(getExtension(name));
                 }
             }
+            // 根据传递进来的names参数，判断返回那些扩展实例
             return extensionsResult;
         } else {
             // add extensions, will be sorted by its order

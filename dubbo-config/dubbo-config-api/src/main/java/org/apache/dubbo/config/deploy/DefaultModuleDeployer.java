@@ -53,8 +53,9 @@ public class DefaultModuleDeployer extends AbstractDeployer<ModuleModel> impleme
 
     private static final Logger logger = LoggerFactory.getLogger(DefaultModuleDeployer.class);
 
+    // 已经完成exported发布的服务实例集合
     private final List<CompletableFuture<?>> asyncExportingFutures = new ArrayList<>();
-
+    // 下面这些组件，本身都是跟model组件体系强关联的
     private final List<CompletableFuture<?>> asyncReferringFutures = new ArrayList<>();
 
     private List<ServiceConfigBase<?>> exportedServices = new ArrayList<>();
@@ -68,6 +69,7 @@ public class DefaultModuleDeployer extends AbstractDeployer<ModuleModel> impleme
 
     private final SimpleReferenceCache referenceCache;
 
+    // 父级的applicationDeployer
     private ApplicationDeployer applicationDeployer;
     private CompletableFuture startFuture;
     private Boolean background;
@@ -138,7 +140,9 @@ public class DefaultModuleDeployer extends AbstractDeployer<ModuleModel> impleme
             onModuleStarting();
 
             // initialize
+            // 父级的applicationDeployer的初始化  DefaultApplicationDeployer
             applicationDeployer.initialize();
+            // 当前moduleModel进行初始化
             initialize();
 
             // export services
