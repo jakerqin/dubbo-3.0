@@ -152,6 +152,7 @@ public class ServiceConfig<T> extends ServiceConfigBase<T> {
     @Override
     protected void postProcessAfterScopeModelChanged(ScopeModel oldScopeModel, ScopeModel newScopeModel) {
         super.postProcessAfterScopeModelChanged(oldScopeModel, newScopeModel);
+        // 初始化protocolSPI。分析自适应获取extension实例的机制
         protocolSPI = this.getExtensionLoader(Protocol.class).getAdaptiveExtension();
         proxyFactory = this.getExtensionLoader(ProxyFactory.class).getAdaptiveExtension();
     }
@@ -307,6 +308,8 @@ public class ServiceConfig<T> extends ServiceConfigBase<T> {
             throw new IllegalStateException("<dubbo:service interface=\"\" /> interface not allow null!");
         }
 
+        // ref就是我们自己的实现类
+        // 下面的逻辑里，都会根据你的接口名称，去获取到对应一些接口的class
         if (ref instanceof GenericService) {
             interfaceClass = GenericService.class;
             if (StringUtils.isEmpty(generic)) {
@@ -356,6 +359,7 @@ public class ServiceConfig<T> extends ServiceConfigBase<T> {
         checkStubAndLocal(interfaceClass);
         ConfigValidationUtils.checkMock(interfaceClass, this);
         ConfigValidationUtils.validateServiceConfig(this);
+        //
         postProcessConfig();
     }
 
@@ -671,6 +675,9 @@ public class ServiceConfig<T> extends ServiceConfigBase<T> {
         // ref实现类，interfaceClass 接口类
         // Invoker调用组件，当dubbo的netty server对外网络监听到连接，处理请求，必须要对请求有一个调用组件
         // ProxyFactory基于我们的接口生成动态代理，被调用接口的时候，底层会回调自己写的实现代码
+
+        // 默认情况下，封装一个proxyInvoker——就是代理invoker，后续针对本地实现类代理了他，对实现类进行调用
+        // 用javassist技术生成wrapper，proxyInvoker调用，底层就是基于javassist wrapper再进行调用
         Invoker<?> invoker = proxyFactory.getInvoker(ref, (Class) interfaceClass, url);
         if (withMetaData) {
             invoker = new DelegateProviderMetaDataInvoker(invoker, this);
@@ -715,8 +722,13 @@ public class ServiceConfig<T> extends ServiceConfigBase<T> {
     }
 
     private void postProcessConfig() {
+        // SPI的自动激活机制的用处
+        // 很多时候，SPI扩展，我们不是说SPI的一个接口就一个实现类可以用
+        // SPI扩展接口，有很多的实现类都可以一起来使用
+        // @Activate自动激活机制，通过这个自动激活机制，把很多实现类都进行激活
         List<ConfigPostProcessor> configPostProcessors = this.getExtensionLoader(ConfigPostProcessor.class)
             .getActivateExtension(URL.valueOf("configPostProcessor://", getScopeModel()), (String[]) null);
+        // 有多个实现类要用，对多个实现类，进行遍历，每个实现类都可以进行处理
         configPostProcessors.forEach(component -> component.postProcessServiceConfig(this));
     }
 

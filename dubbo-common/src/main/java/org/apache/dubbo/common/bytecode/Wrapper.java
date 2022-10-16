@@ -119,6 +119,7 @@ public abstract class Wrapper {
             return OBJECT_WRAPPER;
         }
 
+        // makeWrapper拼接
         return WRAPPER_MAP.computeIfAbsent(c, Wrapper::makeWrapper);
     }
 
@@ -129,6 +130,7 @@ public abstract class Wrapper {
 
         String name = c.getName();
         ClassLoader cl = ClassUtils.getClassLoader(c);
+        // 代码拼接
 
         StringBuilder c1 = new StringBuilder("public void setPropertyValue(Object o, String n, Object v){ ");
         StringBuilder c2 = new StringBuilder("public Object getPropertyValue(Object o, String n){ ");
@@ -253,6 +255,7 @@ public abstract class Wrapper {
 
         // make class
         long id = WRAPPER_CLASS_COUNTER.getAndIncrement();
+        // 创建出一个 ClassGenerator
         ClassGenerator cc = ClassGenerator.newInstance(cl);
         cc.setClassName(c.getName() + "DubboWrap" + id);
         cc.setSuperClass(Wrapper.class);
@@ -276,6 +279,7 @@ public abstract class Wrapper {
         cc.addMethod(c3.toString());
 
         try {
+            //最终生成的是一个Wrapper的子类，子类的代码全是动态代码拼接的
             Class<?> wc = cc.toClass(c);
             // setup static field.
             wc.getField("pts").set(null, pts);
@@ -286,6 +290,7 @@ public abstract class Wrapper {
             for (Method m : ms.values()) {
                 wc.getField("mts" + ix++).set(null, m.getParameterTypes());
             }
+            // 反射初始化对象实例
             return (Wrapper) wc.getDeclaredConstructor().newInstance();
         } catch (RuntimeException e) {
             throw e;

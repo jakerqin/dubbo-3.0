@@ -305,10 +305,14 @@ public final class ClassGenerator {
                 mClassName = (mSuperClass == null || javassist.Modifier.isPublic(ctcs.getModifiers())
                         ? ClassGenerator.class.getName() : mSuperClass + "$sc") + id;
             }
+            // ClassPool是javassisst源码，不继续看了
+            // dubbo默认情况下创建wrapper包装类
+            // 动态拼接类代码字符串，直接对类代码字符串使用javassist进行动态类生成
             mCtc = mPool.makeClass(mClassName);
             if (mSuperClass != null) {
                 mCtc.setSuperclass(ctcs);
             }
+            // 下面基本上就是设置接口、字段、方法。最后通过mPool创建一个类
             mCtc.addInterface(mPool.get(DC.class.getName())); // add dynamic class tag.
             if (mInterfaces != null) {
                 for (String cl : mInterfaces) {

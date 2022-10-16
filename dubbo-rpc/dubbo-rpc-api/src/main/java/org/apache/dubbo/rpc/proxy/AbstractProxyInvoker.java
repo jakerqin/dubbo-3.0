@@ -110,6 +110,8 @@ public abstract class AbstractProxyInvoker<T> implements Invoker<T> {
                 Profiler.setToBizProfiler(originEntry);
             }
 
+            // 把返回结果包装成一个Future
+            // 因为dubbo支持异步化调用，这是一个规范了
             CompletableFuture<Object> future = wrapWithFuture(value, invocation);
             CompletableFuture<AppResponse> appResponseFuture = future.handle((obj, t) -> {
                 AppResponse result = new AppResponse(invocation);

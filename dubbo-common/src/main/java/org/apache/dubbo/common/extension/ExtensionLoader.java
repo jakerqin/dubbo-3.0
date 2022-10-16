@@ -370,6 +370,7 @@ public class ExtensionLoader<T> {
 
                             String[] activateGroup, activateValue;
 
+                            // @Activate注解
                             if (activate instanceof Activate) {
                                 // 就会从@Activate注解里提取出来对应的group和value两个属性
                                 activateGroup = ((Activate) activate).group();
@@ -410,6 +411,7 @@ public class ExtensionLoader<T> {
                     && isActive(cachedActivateValues.get(name), url)) {
 
                     // 根据你的name，去获取到每个name对应的extension class，还有获取一个extension实例。并保存
+                    // 凡事打了@Activate注解的实现类的短名称，在这里都会被加载和初始化
                     activateExtensionsMap.put(getExtensionClass(name), getExtension(name));
                 }
             });
@@ -745,6 +747,11 @@ public class ExtensionLoader<T> {
 
     @SuppressWarnings("unchecked")
     public T getAdaptiveExtension() {
+        // 针对@Adaptive注解的SPI扩展机制，如果你有多个实现类，可以根据url里带的一些参数
+        // 直接就是可以匹配和定位对应的一个实现类
+        // 他在这里动态生成出来的一个类，不是说直接给我们用的实现类，根据我们动态加载的一些需求
+        // 生成出来的这个类，核心要做的事情，根据url里提取出的参数，动态匹配你的实现类
+
         checkDestroyed();
         Object instance = cachedAdaptiveInstance.get();
         if (instance == null) {
@@ -753,11 +760,12 @@ public class ExtensionLoader<T> {
                     createAdaptiveInstanceError.toString(),
                     createAdaptiveInstanceError);
             }
-
+            // cachedAdaptiveInstance——holder，holder是一个编码的设计，很大程度上而言是用来对你的目标对象进行加锁的
             synchronized (cachedAdaptiveInstance) {
                 instance = cachedAdaptiveInstance.get();
                 if (instance == null) {
                     try {
+                        // 创建自适应实现类
                         instance = createAdaptiveExtension();
                         cachedAdaptiveInstance.set(instance);
                     } catch (Throwable t) {
@@ -1379,9 +1387,13 @@ public class ExtensionLoader<T> {
     @SuppressWarnings("unchecked")
     private T createAdaptiveExtension() {
         try {
+            // 获取一个符合自适应机制的extension class
             T instance = (T) getAdaptiveExtensionClass().newInstance();
+            // 前处理
             instance = postProcessBeforeInitialization(instance, null);
+            // 依赖注入
             injectExtension(instance);
+            // 后处理
             instance = postProcessAfterInitialization(instance, null);
             initExtension(instance);
             return instance;
@@ -1391,7 +1403,9 @@ public class ExtensionLoader<T> {
     }
 
     private Class<?> getAdaptiveExtensionClass() {
+        // 会根据接口的配置文件扫描和加载所有的实现类，对@Adaptive注解的处理，也在这里
         getExtensionClasses();
+        // @Adaptive extension class如果已经有缓存了，直接返回
         if (cachedAdaptiveClass != null) {
             return cachedAdaptiveClass;
         }
@@ -1408,7 +1422,10 @@ public class ExtensionLoader<T> {
         } catch (Throwable ignore) {
 
         }
+        // Adaptive，它是用class code generator，做类代码生成
+        // 他的类代码是动态生成出来的
         String code = new AdaptiveClassCodeGenerator(type, cachedDefaultName).generate();
+        // 对动态生成的类代码进行动态编译，编译Class字节码对象
         org.apache.dubbo.common.compiler.Compiler compiler = extensionDirector.getExtensionLoader(
             org.apache.dubbo.common.compiler.Compiler.class).getAdaptiveExtension();
         return compiler.compile(type, code, classLoader);
